@@ -9,6 +9,8 @@ import FamilyPanel from "./FamilyPanel";
 import InvitationsInbox from "./InvitationsInbox";
 import NoFamilyScreen from "./NoFamilyScreen";
 import ProfilePanel from "./ProfilePanel";
+import NotificationSettings from "./NotificationSettings";
+import { disablePush, resyncPush } from "./push";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import Sidebar, { PAGE_TITLE, usePage } from "./Sidebar";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
@@ -130,6 +132,9 @@ function App() {
   }
 
   function signOut() {
+    // Đăng xuất thì thiết bị này thôi nhận thông báo của gia đình (máy dùng chung).
+    const currentToken = localStorage.getItem("nhaminh_token");
+    if (currentToken) void disablePush(currentToken).catch(() => undefined);
     localStorage.removeItem("nhaminh_token");
     chooseViewFamily(null);
     setUser(null);
@@ -374,6 +379,8 @@ function Dashboard({
 
   useEffect(() => {
     getMyInvitations(token).then(setInvitations).catch(() => setInvitations([]));
+    // Thiết bị đã bật thông báo: gửi lại đăng ký cho server (vd. vừa đổi tài khoản trên cùng máy).
+    void resyncPush(token);
     if (isAdmin) getAdminFamilies(token).then(setAdminFamilies).catch(() => setAdminFamilies([]));
   }, [token, isAdmin]);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
@@ -790,6 +797,9 @@ function Dashboard({
             <button type="button" className="button button-primary" onClick={() => goTo("profile")}>Bổ sung ngay</button>
           </div>
         )}
+        {page === "overview" && !viewFamily && (
+          <NotificationSettings token={token} variant="banner" onOpenSettings={() => goTo("profile")} />
+        )}
         {page === "overview" && (<>
         <section className="welcome-row">
           <div>
@@ -1083,7 +1093,12 @@ function Dashboard({
         {page === "invite" && (
           <FamilyPanel token={token} section="invite" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />
         )}
-        {page === "profile" && <ProfilePanel token={token} user={user} onUpdated={onProfileUpdated} />}
+        {page === "profile" && (
+          <>
+            <ProfilePanel token={token} user={user} onUpdated={onProfileUpdated} />
+            <NotificationSettings token={token} />
+          </>
+        )}
         {page === "categories" && (
           <CategoriesPanel token={token} onChanged={() => setCategoriesVersion((version) => version + 1)} />
         )}

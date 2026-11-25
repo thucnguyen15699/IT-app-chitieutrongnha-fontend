@@ -660,3 +660,24 @@ input[aria-invalid="true"] { border-color: #e0a397 !important; box-shadow: 0 0 0
   .gold-actions { width: 100%; justify-content: flex-end; }
   .gold-totals { grid-template-columns: 1fr 1fr; }
 }
+
+/* =====================================================================
+   Thông báo đẩy
+   ===================================================================== */
+.push-banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #d5e3d0; border-radius: 12px; background: #f1f7ee; }
+.push-banner-icon { font-size: 20px; }
+.push-banner-text { flex: 1; min-width: 200px; color: #3f5440; font-size: 12px; line-height: 1.5; }
+.push-banner-actions { display: flex; gap: 8px; }
+.push-banner-actions .button { min-height: 36px; padding: 0 14px; font-size: 12px; }
+.notification-card { max-width: 720px; margin-top: 16px; }
+.notification-intro { margin: 4px 0 14px; color: #7c867b; font-size: 12px; }
+.notification-state { margin: 0 0 12px; font-size: 13px; font-weight: 650; }
+.notification-on { color: #2f7a3e; }
+.notification-help { margin: 0; padding: 12px 14px; border-radius: 10px; color: #4d5a4d; background: #f6f7f2; font-size: 12px; line-height: 1.6; }
+.notification-help p { margin: 0 0 6px; }
+.notification-help ol, .notification-help ul { margin: 0; padding-left: 20px; }
+.notification-card .transaction-form-actions .button { min-height: 40px; padding: 0 18px; }
+@media (max-width: 760px) {
+  .push-banner-actions { width: 100%; }
+  .push-banner-actions .button { flex: 1; min-height: 44px; }
+}
