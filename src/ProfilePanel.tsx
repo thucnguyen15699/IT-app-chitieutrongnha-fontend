@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { resendEmailVerification, updateProfile } from "./api";
+import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import type { UserProfile } from "./types";
 
 type ProfilePanelProps = {
@@ -16,6 +17,22 @@ export default function ProfilePanel({ token, user, onUpdated }: ProfilePanelPro
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+
+  // Kiểm tra trùng/định dạng khi đang gõ; giữ nguyên giá trị cũ thì không cần kiểm tra.
+  const emailCheck = useFieldCheck("email", email, { token, unchanged: user.pendingEmail ?? user.email });
+  const phoneCheck = useFieldCheck("phoneNumber", phone, { token, unchanged: user.phoneNumber });
+  const blocked = hasError(emailCheck, phoneCheck);
+  const changed = name.trim() !== user.name
+    || email.trim().toLowerCase() !== (user.pendingEmail ?? user.email ?? "")
+    || phone.trim() !== (user.phoneNumber ?? "");
+
+  function resetForm() {
+    setName(user.name);
+    setEmail(user.pendingEmail ?? user.email ?? "");
+    setPhone(user.phoneNumber ?? "");
+    setError("");
+    setNotice("");
+  }
 
   const missing = [!user.email && !user.pendingEmail ? "email" : null, !user.phoneNumber ? "số điện thoại" : null]
     .filter(Boolean)
@@ -86,8 +103,11 @@ export default function ProfilePanel({ token, user, onUpdated }: ProfilePanelPro
           maxLength={254}
           autoComplete="email"
           placeholder="ban@email.com"
+          aria-describedby="profile-email-check"
+          aria-invalid={emailCheck.status === "error"}
           onChange={(event) => setEmail(event.target.value)}
         />
+        <FieldStatus check={emailCheck} id="profile-email-check" />
         {user.pendingEmail ? (
           <p className="field-hint">
             Đã gửi thư xác minh tới <b>{user.pendingEmail}</b>. Mở thư và bấm liên kết để dùng email này
@@ -108,15 +128,25 @@ export default function ProfilePanel({ token, user, onUpdated }: ProfilePanelPro
           maxLength={30}
           autoComplete="tel"
           placeholder="0912 345 678"
+          aria-describedby="profile-phone-check"
+          aria-invalid={phoneCheck.status === "error"}
           onChange={(event) => setPhone(event.target.value)}
         />
-        <p className="field-hint">Số điện thoại được lưu ngay, không cần mã OTP.</p>
+        <FieldStatus check={phoneCheck} id="profile-phone-check" />
+        <p className="field-hint">Điền sai thì sửa lại rồi bấm Lưu. Số điện thoại được lưu ngay, không cần mã OTP.</p>
 
         {error && <div className="form-error" role="alert">{error}</div>}
         {notice && <div className="form-success" role="status">{notice}</div>}
-        <button className="button button-primary transaction-submit" type="submit" disabled={busy}>
-          {busy ? "Đang lưu..." : "Lưu thông tin"}
-        </button>
+        <div className="transaction-form-actions">
+          <button className="button button-primary transaction-submit" type="submit" disabled={busy || blocked || !changed}>
+            {busy ? "Đang lưu..." : "Lưu thông tin"}
+          </button>
+          {changed && (
+            <button className="button button-install transaction-cancel" type="button" disabled={busy} onClick={resetForm}>
+              Khôi phục
+            </button>
+          )}
+        </div>
       </form>
     </section>
   );

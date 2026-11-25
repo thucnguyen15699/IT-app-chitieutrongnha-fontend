@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createAdminUser, getAdminFamilies, getAdminUsers } from "./api";
+import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import { formatDate } from "./format";
 import type { AdminUser, FamilySummary } from "./types";
 
@@ -20,6 +21,14 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
   const [notice, setNotice] = useState("");
   const [familyMode, setFamilyMode] = useState<"existing" | "new">("existing");
   const [familyId, setFamilyId] = useState("");
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  // Không gửi token: so trùng với mọi tài khoản (kể cả tài khoản admin).
+  const usernameCheck = useFieldCheck("username", username);
+  const emailCheck = useFieldCheck("email", email);
+  const phoneCheck = useFieldCheck("phoneNumber", phone);
+  const blocked = hasError(usernameCheck, emailCheck, phoneCheck);
 
   async function refresh() {
     setError("");
@@ -58,6 +67,9 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
         familyName: familyMode === "new" ? String(form.get("familyName") ?? "").trim() : null,
       });
       formElement.reset();
+      setUsername("");
+      setEmail("");
+      setPhone("");
       setNotice(`Đã tạo tài khoản ${created.username} trong gia đình "${created.familyName}". Người dùng đăng nhập bằng tên đăng nhập.`);
       await refresh();
     } catch (requestError) {
@@ -92,11 +104,20 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
             <label htmlFor="admin-name">Họ tên</label>
             <input id="admin-name" name="name" required maxLength={100} />
             <label htmlFor="admin-username">Tên đăng nhập</label>
-            <input id="admin-username" name="username" required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]{3,50}" />
+            <div className="admin-field">
+              <input id="admin-username" name="username" required minLength={3} maxLength={50} pattern="[A-Za-z0-9._-]{3,50}" value={username} onChange={(event) => setUsername(event.target.value)} />
+              <FieldStatus check={usernameCheck} />
+            </div>
             <label htmlFor="admin-email">Email (không bắt buộc)</label>
-            <input id="admin-email" name="email" type="email" maxLength={254} />
+            <div className="admin-field">
+              <input id="admin-email" name="email" type="email" maxLength={254} value={email} onChange={(event) => setEmail(event.target.value)} />
+              <FieldStatus check={emailCheck} />
+            </div>
             <label htmlFor="admin-phone">Số điện thoại (không bắt buộc)</label>
-            <input id="admin-phone" name="phoneNumber" type="tel" maxLength={30} />
+            <div className="admin-field">
+              <input id="admin-phone" name="phoneNumber" type="tel" maxLength={30} value={phone} onChange={(event) => setPhone(event.target.value)} />
+              <FieldStatus check={phoneCheck} />
+            </div>
 
             <span className="admin-form-label">Gia đình</span>
             <div className="segmented admin-family-mode" role="group" aria-label="Cách gán gia đình">
@@ -122,7 +143,7 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
             <input id="admin-password" name="password" type="password" required minLength={8} maxLength={72} autoComplete="new-password" />
             {error && <div className="form-error" role="alert">{error}</div>}
             {notice && <div className="form-success" role="status">{notice}</div>}
-            <button className="button button-primary auth-submit" type="submit" disabled={busy}>
+            <button className="button button-primary auth-submit" type="submit" disabled={busy || blocked}>
               {busy ? "Đang tạo..." : "Tạo tài khoản"}
             </button>
           </form>

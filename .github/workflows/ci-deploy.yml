@@ -1,0 +1,64 @@
+# Kiểm tra + deploy tự động giao diện.
+#   push develop → build → deploy DEV
+#   push test    → build → deploy TEST
+#   push main    → build → (chờ duyệt) → deploy PRD
+#   pull request → chỉ build
+# Server deploy lại cả backend + frontend của môi trường đó (lấy code mới nhất của cùng nhánh).
+# Cần secrets: DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS, (tùy chọn) DEPLOY_PORT.
+# Thiết lập: xem backend/deploy/README.md mục 9.
+name: CI & Deploy
+
+on:
+  push:
+    branches: [develop, test, main]
+  pull_request:
+    branches: [develop, test, main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Kiểm tra kiểu & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build (gồm kiểm tra TypeScript)
+        run: npm run build
+
+  deploy:
+    name: Deploy ${{ github.ref_name == 'main' && 'prd' || github.ref_name == 'test' && 'test' || 'dev' }}
+    needs: build
+    if: github.event_name != 'pull_request' && contains(fromJSON('["develop","test","main"]'), github.ref_name)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'main' && 'prd' || github.ref_name == 'test' && 'test' || 'dev' }}
+    concurrency:
+      group: deploy-${{ github.ref_name }}
+      cancel-in-progress: false
+    steps:
+      - name: Deploy qua SSH
+        env:
+          TARGET: ${{ github.ref_name == 'main' && 'prd' || github.ref_name == 'test' && 'test' || 'dev' }}
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          PORT: ${{ secrets.DEPLOY_PORT }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -i ~/.ssh/deploy_key -p "${PORT:-22}" \
+              -o BatchMode=yes -o StrictHostKeyChecking=yes \
+              -o ServerAliveInterval=30 -o ServerAliveCountMax=10 \
+              "$USER@$HOST" "deploy $TARGET"

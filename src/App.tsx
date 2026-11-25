@@ -4,10 +4,12 @@ import AnalyticsPanel from "./AnalyticsPanel";
 import CategoriesPanel from "./CategoriesPanel";
 import PlannedExpensesPanel from "./PlannedExpensesPanel";
 import SavingsPanel from "./SavingsPanel";
+import GoldPanel from "./GoldPanel";
 import FamilyPanel from "./FamilyPanel";
 import InvitationsInbox from "./InvitationsInbox";
 import NoFamilyScreen from "./NoFamilyScreen";
 import ProfilePanel from "./ProfilePanel";
+import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import Sidebar, { PAGE_TITLE, usePage } from "./Sidebar";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
@@ -215,6 +217,14 @@ type AuthScreenProps = {
 
 function AuthScreen({ mode, setMode, onSubmit, error, notice, busy }: AuthScreenProps) {
   const isRegister = mode === "register";
+  // Chỉ kiểm tra trùng khi đăng ký; lúc đăng nhập thì để trống để không gọi API.
+  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const usernameCheck = useFieldCheck("username", isRegister ? username : "");
+  const emailCheck = useFieldCheck("email", isRegister ? email : "");
+  const phoneCheck = useFieldCheck("phoneNumber", isRegister ? phone : "");
+  const blocked = isRegister && hasError(usernameCheck, emailCheck, phoneCheck);
   return (
     <main className="auth-page">
       <section className="auth-story">
@@ -260,13 +270,41 @@ function AuthScreen({ mode, setMode, onSubmit, error, notice, busy }: AuthScreen
               minLength={3}
               maxLength={50}
               pattern="[A-Za-z0-9._-]{3,50}"
+              value={username}
+              aria-describedby={isRegister ? "username-check" : undefined}
+              onChange={(event) => setUsername(event.target.value)}
             />
+            {isRegister && <FieldStatus check={usernameCheck} id="username-check" />}
             {isRegister && (
               <>
                 <label htmlFor="email">Email xác minh</label>
-                <input id="email" name="email" type="email" placeholder="ban@email.com" autoComplete="email" required maxLength={254} />
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  placeholder="ban@email.com"
+                  autoComplete="email"
+                  required
+                  maxLength={254}
+                  value={email}
+                  aria-describedby="email-check"
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+                <FieldStatus check={emailCheck} id="email-check" />
                 <label htmlFor="phoneNumber">Số điện thoại (không bắt buộc)</label>
-                <input id="phoneNumber" name="phoneNumber" type="tel" placeholder="Số điện thoại" autoComplete="tel" maxLength={30} />
+                <input
+                  id="phoneNumber"
+                  name="phoneNumber"
+                  type="tel"
+                  inputMode="tel"
+                  placeholder="Số điện thoại"
+                  autoComplete="tel"
+                  maxLength={30}
+                  value={phone}
+                  aria-describedby="phone-check"
+                  onChange={(event) => setPhone(event.target.value)}
+                />
+                <FieldStatus check={phoneCheck} id="phone-check" />
               </>
             )}
             <label htmlFor="password">Mật khẩu</label>
@@ -282,7 +320,8 @@ function AuthScreen({ mode, setMode, onSubmit, error, notice, busy }: AuthScreen
             />
             {error && <div className="form-error" role="alert">{error}</div>}
             {notice && <div className="form-success" role="status">{notice}</div>}
-            <button type="submit" className="button button-primary auth-submit" disabled={busy}>
+            {blocked && <div className="form-error" role="alert">Vui lòng sửa các thông tin đang báo đỏ trước khi đăng ký.</div>}
+            <button type="submit" className="button button-primary auth-submit" disabled={busy || blocked}>
               {busy ? "Đang xử lý..." : isRegister ? "Tạo tài khoản gia đình" : "Đăng nhập"}
               {!busy && <span aria-hidden="true">→</span>}
             </button>
@@ -493,7 +532,10 @@ function Dashboard({
 
   const pendingTotal = planning?.pendingTotal ?? 0;
   const savingsNet = planning?.savingsNetInMonth ?? 0;
-  const walletRemaining = incomeTotal - expenseTotal - pendingTotal - savingsNet;
+  const goldSpent = planning?.goldSpentInMonth ?? 0;
+  // Tiền gửi tiết kiệm và tiền mua vàng trong tháng đều đã rời khỏi ví.
+  const putAside = savingsNet + goldSpent;
+  const walletRemaining = incomeTotal - expenseTotal - pendingTotal - putAside;
 
   useEffect(() => {
     let active = true;
@@ -782,8 +824,8 @@ function Dashboard({
             <p className="card-caption">
               {walletRemaining < 0
                 ? "Không đủ tiền cho các khoản sắp chi!"
-                : savingsNet !== 0
-                  ? `Thu − chi − sắp chi − tiết kiệm (${formatCurrency(savingsNet)})`
+                : putAside !== 0
+                  ? `Thu − chi − sắp chi − tiết kiệm & vàng (${formatCurrency(putAside)})`
                   : "Thu − đã chi − khoản sắp phải chi"}
             </p>
           </article>
@@ -1028,7 +1070,12 @@ function Dashboard({
         </>)}
 
         {page === "planned" && <PlannedExpensesPanel token={token} onChanged={handlePlannedChanged} />}
-        {page === "savings" && <SavingsPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />}
+        {page === "savings" && (
+          <>
+            <SavingsPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />
+            <GoldPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />
+          </>
+        )}
         {page === "analytics" && <AnalyticsPanel token={token} refreshKey={statsVersion} />}
         {page === "family" && (
           <FamilyPanel token={token} section="members" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />

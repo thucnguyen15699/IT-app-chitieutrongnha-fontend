@@ -603,3 +603,60 @@ body.drawer-lock { overflow: hidden; }
 @media (max-width: 760px) {
   .profile-missing-banner .button { width: 100%; min-height: 44px; }
 }
+
+/* Kiểm tra trùng email / SĐT / tên đăng nhập khi đang gõ */
+.field-check { margin: 6px 0 0; font-size: 11px; line-height: 1.4; }
+.field-check-checking { color: #8c9589; }
+.field-check-ok { color: #2f7a3e; }
+.field-check-error { color: #c2412d; font-weight: 600; }
+input[aria-invalid="true"] { border-color: #e0a397 !important; box-shadow: 0 0 0 3px rgba(194, 65, 45, .1); }
+.admin-field { display: flex; flex-direction: column; min-width: 0; }
+
+/* =====================================================================
+   Mua vàng & lãi/lỗ
+   ===================================================================== */
+.gold-card { margin-top: 16px; }
+.gold-price-box { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin: 4px 0 14px; padding: 14px; border: 1px solid #efe2bf; border-radius: 12px; background: #fffbf0; }
+.gold-price-now { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.gold-price-now span { color: #8a7448; font-size: 11px; font-weight: 600; }
+.gold-price-now strong { color: #5a4413; font-size: 20px; }
+.gold-price-now small { color: #9a8a66; font-size: 11px; }
+.gold-price-missing { color: #b3361f !important; font-size: 15px !important; }
+.gold-price-form { display: flex; gap: 6px; flex-wrap: wrap; }
+.gold-price-form input { height: 38px; min-width: 0; padding: 0 10px; border: 1px solid #e8dcc0; border-radius: 8px; outline: none; color: #39483b; background: #fff; font-size: 12px; }
+.gold-price-form input[type="date"] { width: 140px; }
+.gold-price-form input:not([type="date"]) { width: 190px; }
+.gold-price-form input:focus { border-color: #c9a24a; box-shadow: 0 0 0 3px rgba(201, 162, 74, .15); }
+.gold-price-form .button { min-height: 38px; padding: 0 14px; font-size: 12px; }
+
+.gold-mark { color: #9a6410; background: #fdf1d6; font-size: 13px; font-weight: 800; }
+.gold-tag { margin-left: 8px; padding: 2px 9px; border-radius: 999px; font-size: 10px; font-style: normal; font-weight: 650; }
+.gold-tag-up { color: #2f6b3a; background: #e6f2e3; }
+.gold-tag-down { color: #b3361f; background: #fdebe6; }
+.gold-tag-flat { color: #6b756a; background: #eef1eb; }
+.gold-figures { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; white-space: nowrap; }
+.gold-figures strong { color: #344436; font-size: 12px; }
+.gold-figures small { color: #969e94; font-size: 10px; }
+.gold-profit { font-size: 12px; font-weight: 700; }
+.gold-profit-up { color: #2f7a3e; }
+.gold-profit-down { color: #c2412d; }
+.gold-profit-flat { color: #6b756a; }
+.gold-profit-unknown { color: #a0a79d; font-weight: 500; font-size: 11px; }
+.gold-actions { display: flex; gap: 6px; flex: 0 0 auto; }
+.gold-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+.gold-totals > div { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid #edf0e9; border-radius: 10px; background: #fafbf8; min-width: 0; }
+.gold-totals span:first-child { color: #7c867b; font-size: 10px; font-weight: 600; }
+.gold-totals strong { overflow: hidden; color: #344436; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.gold-history { margin-top: 14px; color: #6b756a; font-size: 12px; }
+.gold-history summary { cursor: pointer; font-weight: 600; }
+.gold-history ul { margin: 8px 0 0; padding: 0; list-style: none; }
+.gold-history li { display: flex; justify-content: space-between; padding: 5px 2px; border-bottom: 1px dashed #e8ece4; }
+
+@media (max-width: 760px) {
+  .gold-price-form { width: 100%; }
+  .gold-price-form input[type="date"], .gold-price-form input:not([type="date"]) { flex: 1 1 140px; width: auto; height: 44px; font-size: 16px; }
+  .gold-price-form .button { flex: 1 1 100%; min-height: 44px; }
+  .gold-row { flex-wrap: wrap; }
+  .gold-actions { width: 100%; justify-content: flex-end; }
+  .gold-totals { grid-template-columns: 1fr 1fr; }
+}

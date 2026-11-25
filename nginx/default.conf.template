@@ -1,0 +1,61 @@
+# Cấu hình nginx trong container frontend. ${BACKEND_HOST} và ${ROBOTS_TAG} lấy từ biến môi trường.
+# Các biến của nginx như $uri, $host không bị thay vì không phải biến môi trường.
+
+# Lấy IP thật của người dùng do Cloudflare gửi kèm; chỉ tin khi request đến từ mạng Docker nội bộ
+# (nơi container cloudflared chạy).
+real_ip_header CF-Connecting-IP;
+set_real_ip_from 172.16.0.0/12;
+set_real_ip_from 10.0.0.0/8;
+set_real_ip_from 192.168.0.0/16;
+
+# Chính sách cache theo đường dẫn. Đặt ở một chỗ duy nhất vì trong nginx, location nào
+# có add_header riêng sẽ làm mất toàn bộ add_header của server.
+map $uri $cache_control {
+    ~^/api/                                      "";   # rỗng = không thêm, để backend tự quyết
+    ~^/assets/                                  "public, max-age=31536000, immutable";  # file có mã băm
+    ~^/(index\.html|sw\.js|manifest\.webmanifest)$ "no-cache, no-store, must-revalidate";
+    default                                      "no-cache";
+}
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    client_max_body_size 2m;
+
+    gzip on;
+    gzip_types text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+
+    add_header Cache-Control $cache_control always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    # dev/test: "noindex, nofollow" để Google không lập chỉ mục; prd: "all".
+    add_header X-Robots-Tag "${ROBOTS_TAG}" always;
+
+    location = /healthz {
+        access_log off;
+        return 200 "ok";
+    }
+
+    # API → backend cùng môi trường.
+    location /api/ {
+        proxy_pass http://${BACKEND_HOST};
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_read_timeout 60s;
+    }
+
+    location /assets/ {
+        try_files $uri =404;
+    }
+
+    # Ứng dụng 1 trang: mọi đường dẫn khác trả về index.html.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

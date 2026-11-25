@@ -197,6 +197,40 @@ export type PlanningSummary = {
   /** Tiền gửi tiết kiệm trừ tiền rút trong tháng. */
   savingsNetInMonth: number;
   totalSaved: number;
+  /** Tiền mua vàng trong tháng (đã rời khỏi ví). */
+  goldSpentInMonth: number;
 };
 
 export type AuthMode = "login" | "register";
+
+// ----- Vàng -----
+
+export type GoldPrice = { priceDate: string; pricePerChi: number };
+
+/** currentValue / profit / profitPercent = null khi chưa nhập giá vàng lần nào. */
+export type GoldPurchase = {
+  id: number;
+  purchasedOn: string;
+  quantityChi: number;
+  totalCost: number;
+  costPerChi: number;
+  note: string | null;
+  currentValue: number | null;
+  profit: number | null;
+  profitPercent: number | null;
+};
+
+export type GoldOverview = {
+  currentPrice: GoldPrice | null;
+  recentPrices: GoldPrice[];
+  purchases: GoldPurchase[];
+  totals: {
+    quantityChi: number;
+    totalCost: number;
+    currentValue: number | null;
+    profit: number | null;
+    profitPercent: number | null;
+  };
+};
+
+export type GoldPurchaseInput = { purchasedOn: string; quantityChi: number; totalCost: number; note: string };

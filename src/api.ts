@@ -5,6 +5,8 @@ import type {
   CreateTransaction,
   FamilyDetails,
   FamilySummary,
+  GoldOverview,
+  GoldPurchaseInput,
   FamilyTransaction,
   IncomingInvitation,
   InviteResult,
@@ -291,4 +293,51 @@ export function updateProfile(token: string, profile: { name: string; email: str
 
 export function resendEmailVerification(token: string) {
   return request<{ message: string }>("/profile/resend-verification", { method: "POST", headers: authHeader(token) });
+}
+
+// ----- Kiểm tra trùng khi đang gõ -----
+
+export type FieldCheckResult = { valid: boolean; available: boolean; message: string };
+export type AvailabilityResult = {
+  username: FieldCheckResult | null;
+  email: FieldCheckResult | null;
+  phoneNumber: FieldCheckResult | null;
+};
+
+/** Có token (đang sửa thông tin của mình) thì backend bỏ qua chính tài khoản đó khi so trùng. */
+export function checkAvailability(params: { username?: string; email?: string; phoneNumber?: string }, token?: string) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+  return request<AvailabilityResult>(`/auth/check-availability?${query.toString()}`, {
+    headers: token ? authHeader(token) : {},
+  });
+}
+
+// ----- Vàng -----
+
+export function getGold(token: string) {
+  return request<GoldOverview>("/gold", { headers: authHeader(token) });
+}
+
+export function addGoldPurchase(token: string, input: GoldPurchaseInput) {
+  return request<GoldOverview>("/gold/purchases", { method: "POST", headers: authHeader(token), body: JSON.stringify(input) });
+}
+
+export function updateGoldPurchase(token: string, id: number, input: GoldPurchaseInput) {
+  return request<GoldOverview>(`/gold/purchases/${id}`, { method: "PUT", headers: authHeader(token), body: JSON.stringify(input) });
+}
+
+export function deleteGoldPurchase(token: string, id: number) {
+  return request<GoldOverview>(`/gold/purchases/${id}`, { method: "DELETE", headers: authHeader(token) });
+}
+
+/** Nhập giá vàng (1 chỉ) cho một ngày; nhập lại cùng ngày thì ghi đè. */
+export function setGoldPrice(token: string, priceDate: string, pricePerChi: number) {
+  return request<GoldOverview>("/gold/price", {
+    method: "PUT",
+    headers: authHeader(token),
+    body: JSON.stringify({ priceDate, pricePerChi }),
+  });
 }
