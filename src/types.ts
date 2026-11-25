@@ -5,6 +5,8 @@ export type UserProfile = {
   email: string | null;
   phoneNumber: string | null;
   emailVerified: boolean;
+  /** Email mới đang chờ xác minh (null nếu không có). */
+  pendingEmail: string | null;
   /** null khi người dùng chưa thuộc gia đình nào (đang chờ lời mời). */
   familyId: number | null;
   familyName: string | null;

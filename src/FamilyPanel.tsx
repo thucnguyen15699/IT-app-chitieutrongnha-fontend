@@ -5,14 +5,18 @@ import type { FamilyDetails } from "./types";
 
 type FamilyPanelProps = {
   token: string;
+  /** "members": trang Gia đình (thành viên). "invite": trang Mời thành viên. */
+  section: "members" | "invite";
   /** Đổi tên gia đình xong thì cập nhật tên hiển thị ở menu. */
   onRenamed: (name: string) => void;
+  /** Từ trang thành viên chuyển sang trang mời. */
+  onGoInvite: () => void;
 };
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Chủ gia đình", MEMBER: "Thành viên" };
 
 /** Trang "Gia đình": thành viên, mời người thân bằng email/SĐT, lời mời đang chờ. */
-export default function FamilyPanel({ token, onRenamed }: FamilyPanelProps) {
+export default function FamilyPanel({ token, section, onRenamed, onGoInvite }: FamilyPanelProps) {
   const [family, setFamily] = useState<FamilyDetails | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
@@ -84,7 +88,8 @@ export default function FamilyPanel({ token, onRenamed }: FamilyPanelProps) {
   }
 
   return (
-    <div className="family-layout">
+    <div className="family-layout single">
+      {section === "members" && (
       <section className="content-card" aria-label="Thành viên gia đình">
         <span className="eyebrow">GIA ĐÌNH CỦA BẠN</span>
         {editingName ? (
@@ -113,9 +118,24 @@ export default function FamilyPanel({ token, onRenamed }: FamilyPanelProps) {
         {family.myRole === "ADMIN_VIEW" && (
           <p className="manage-hint">Bạn đang xem gia đình này với quyền quản trị (chỉ xem).</p>
         )}
+        {family.canInvite && (
+          <div className="family-invite-cta">
+            <span>
+              {family.pendingInvitations.length > 0
+                ? `${family.pendingInvitations.length} lời mời đang chờ trả lời.`
+                : "Thêm bố mẹ, vợ chồng, con cái để cùng ghi chi tiêu."}
+            </span>
+            <button type="button" className="button button-primary" onClick={onGoInvite}>+ Mời thành viên</button>
+          </div>
+        )}
       </section>
+      )}
 
-      {family.canInvite && (
+      {section === "invite" && !family.canInvite && (
+        <p className="transaction-empty">Bạn đang xem gia đình này với quyền quản trị nên không thể mời thành viên.</p>
+      )}
+
+      {section === "invite" && family.canInvite && (
         <section className="content-card" aria-label="Mời người thân">
           <span className="eyebrow">THÊM NGƯỜI THÂN</span>
           <h2 className="family-section-title">Mời vào gia đình</h2>

@@ -277,3 +277,18 @@ export function declineInvitation(token: string, id: number) {
 export function getAdminFamilies(token: string) {
   return request<FamilySummary[]>("/admin/families", { headers: authHeader(token) });
 }
+
+// ----- Thông tin cá nhân -----
+
+/** Lưu họ tên, email, SĐT. Email mới chỉ có hiệu lực sau khi xác minh qua thư. */
+export function updateProfile(token: string, profile: { name: string; email: string; phoneNumber: string }) {
+  return request<{ user: UserProfile; message: string }>("/profile", {
+    method: "PUT",
+    headers: authHeader(token),
+    body: JSON.stringify(profile),
+  });
+}
+
+export function resendEmailVerification(token: string) {
+  return request<{ message: string }>("/profile/resend-verification", { method: "POST", headers: authHeader(token) });
+}

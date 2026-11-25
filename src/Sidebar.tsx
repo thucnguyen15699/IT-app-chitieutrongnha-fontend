@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-export type Page = "overview" | "planned" | "savings" | "analytics" | "categories" | "family";
+export type Page =
+  | "overview" | "planned" | "savings" | "analytics" | "categories" | "family" | "invite" | "profile";
 
 /** Mỗi trang có một địa chỉ #/... để nút Back trên điện thoại hoạt động đúng. */
 const PAGE_HASH: Record<Page, string> = {
@@ -10,6 +11,8 @@ const PAGE_HASH: Record<Page, string> = {
   analytics: "#/phan-tich",
   categories: "#/danh-muc",
   family: "#/gia-dinh",
+  invite: "#/moi-thanh-vien",
+  profile: "#/thong-tin-ca-nhan",
 };
 
 export const PAGE_TITLE: Record<Page, string> = {
@@ -19,6 +22,8 @@ export const PAGE_TITLE: Record<Page, string> = {
   analytics: "Phân tích",
   categories: "Danh mục",
   family: "Gia đình",
+  invite: "Mời thành viên",
+  profile: "Thông tin tài khoản",
 };
 
 function pageFromHash(hash: string): Page {
@@ -54,13 +59,15 @@ const icons: Record<Page | "admin" | "logout" | "install", ReactNode> = {
   savings: <Icon><path d="M5 11a7 6 0 0 1 13.5-2H20v4l-2 1v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11Z" /><path d="M10 7.5h3" /></Icon>,
   analytics: <Icon><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Icon>,
   family: <Icon><circle cx="9" cy="8" r="3.2" /><circle cx="17" cy="9.5" r="2.4" /><path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" /><path d="M15 14.6c2.6-.4 4.9 1.1 5.5 4.4" /></Icon>,
+  invite: <Icon><circle cx="9" cy="8" r="3.4" /><path d="M2.5 20c.7-3.6 3.3-5.6 6.5-5.6 1.6 0 3 .5 4.1 1.4" /><path d="M18.5 13v7M15 16.5h7" /></Icon>,
+  profile: <Icon><circle cx="12" cy="8" r="3.6" /><path d="M4.5 20.5c.9-4 3.9-6.2 7.5-6.2s6.6 2.2 7.5 6.2" /></Icon>,
   categories: <Icon><rect x="3" y="3" width="7.5" height="7.5" rx="1.8" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8" /><path d="M17.25 14v6.5M14 17.25h6.5" /></Icon>,
   admin: <Icon><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></Icon>,
   install: <Icon><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 20h14" /></Icon>,
   logout: <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4M6 12h10" /></Icon>,
 };
 
-const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "analytics", "family", "categories"];
+const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "analytics", "family", "invite", "categories", "profile"];
 
 type SidebarProps = {
   page: Page;
@@ -75,6 +82,8 @@ type SidebarProps = {
   pendingCount: number;
   /** Số lời mời vào gia đình đang chờ người dùng trả lời. */
   invitationCount: number;
+  /** Tài khoản còn thiếu email hoặc số điện thoại: hiện dấu nhắc ở mục Thông tin cá nhân. */
+  profileIncomplete: boolean;
   onAdmin: () => void;
   onInstall: () => void;
   onSignOut: () => void;
@@ -91,6 +100,7 @@ export default function Sidebar({
   isAdmin,
   pendingCount,
   invitationCount,
+  profileIncomplete,
   onAdmin,
   onInstall,
   onSignOut,
@@ -136,6 +146,7 @@ export default function Sidebar({
             <span className="sidebar-label">{PAGE_TITLE[item]}</span>
             {item === "planned" && pendingCount > 0 && <span className="sidebar-badge" aria-label={`${pendingCount} khoản`}>{pendingCount}</span>}
             {item === "family" && invitationCount > 0 && <span className="sidebar-badge" aria-label={`${invitationCount} lời mời`}>{invitationCount}</span>}
+            {item === "profile" && profileIncomplete && <span className="sidebar-badge" aria-label="Thiếu thông tin">!</span>}
           </a>
         ))}
       </nav>

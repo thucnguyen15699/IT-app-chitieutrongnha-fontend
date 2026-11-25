@@ -7,6 +7,7 @@ import SavingsPanel from "./SavingsPanel";
 import FamilyPanel from "./FamilyPanel";
 import InvitationsInbox from "./InvitationsInbox";
 import NoFamilyScreen from "./NoFamilyScreen";
+import ProfilePanel from "./ProfilePanel";
 import Sidebar, { PAGE_TITLE, usePage } from "./Sidebar";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
@@ -184,6 +185,7 @@ function App() {
         viewFamily={viewFamily}
         onChooseFamily={chooseViewFamily}
         onFamilyRenamed={(name) => setUser((current) => current && { ...current, familyName: name })}
+        onProfileUpdated={setUser}
         onAdmin={() => setView("admin")}
         onSignOut={signOut}
         onInstall={installApp}
@@ -306,6 +308,7 @@ type DashboardProps = {
   viewFamily: { id: number; name: string } | null;
   onChooseFamily: (family: { id: number; name: string } | null) => void;
   onFamilyRenamed: (name: string) => void;
+  onProfileUpdated: (user: UserProfile) => void;
   onAdmin: () => void;
   onSignOut: () => void;
   onInstall: () => void;
@@ -318,12 +321,15 @@ function Dashboard({
   viewFamily,
   onChooseFamily,
   onFamilyRenamed,
+  onProfileUpdated,
   onAdmin,
   onSignOut,
   onInstall,
   canInstall,
 }: DashboardProps) {
   const isAdmin = user.roles.includes("ADMIN");
+  /** Thiếu email (kể cả chưa có email chờ xác minh) hoặc thiếu số điện thoại. */
+  const profileIncomplete = (!user.email && !user.pendingEmail) || !user.phoneNumber;
   const [invitations, setInvitations] = useState<IncomingInvitation[]>([]);
   const [adminFamilies, setAdminFamilies] = useState<FamilySummary[]>([]);
 
@@ -654,6 +660,7 @@ function Dashboard({
         onClose={() => setDrawerOpen(false)}
         familyName={viewFamily?.name ?? user.familyName ?? ""}
         invitationCount={invitations.length}
+        profileIncomplete={profileIncomplete}
         userName={user.name}
         isAdmin={user.roles.includes("ADMIN")}
         pendingCount={planning?.pendingCount ?? 0}
@@ -730,6 +737,16 @@ function Dashboard({
             onAccepted={() => window.location.reload()}
             onDeclined={(id) => setInvitations((current) => current.filter((entry) => entry.id !== id))}
           />
+        )}
+        {!viewFamily && profileIncomplete && page !== "profile" && (
+          <div className="profile-missing profile-missing-banner" role="status">
+            <span>
+              Tài khoản còn thiếu{" "}
+              <b>{[!user.email && !user.pendingEmail ? "email" : null, !user.phoneNumber ? "số điện thoại" : null].filter(Boolean).join(" và ")}</b>.
+              Bổ sung để người thân có thể mời bạn và để lấy lại tài khoản khi cần.
+            </span>
+            <button type="button" className="button button-primary" onClick={() => goTo("profile")}>Bổ sung ngay</button>
+          </div>
         )}
         {page === "overview" && (<>
         <section className="welcome-row">
@@ -1013,7 +1030,13 @@ function Dashboard({
         {page === "planned" && <PlannedExpensesPanel token={token} onChanged={handlePlannedChanged} />}
         {page === "savings" && <SavingsPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />}
         {page === "analytics" && <AnalyticsPanel token={token} refreshKey={statsVersion} />}
-        {page === "family" && <FamilyPanel token={token} onRenamed={onFamilyRenamed} />}
+        {page === "family" && (
+          <FamilyPanel token={token} section="members" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />
+        )}
+        {page === "invite" && (
+          <FamilyPanel token={token} section="invite" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />
+        )}
+        {page === "profile" && <ProfilePanel token={token} user={user} onUpdated={onProfileUpdated} />}
         {page === "categories" && (
           <CategoriesPanel token={token} onChanged={() => setCategoriesVersion((version) => version + 1)} />
         )}
