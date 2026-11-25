@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 
-export type Page = "overview" | "planned" | "savings" | "analytics" | "categories";
+export type Page = "overview" | "planned" | "savings" | "analytics" | "categories" | "family";
 
 /** Mỗi trang có một địa chỉ #/... để nút Back trên điện thoại hoạt động đúng. */
 const PAGE_HASH: Record<Page, string> = {
@@ -9,6 +9,7 @@ const PAGE_HASH: Record<Page, string> = {
   savings: "#/tiet-kiem",
   analytics: "#/phan-tich",
   categories: "#/danh-muc",
+  family: "#/gia-dinh",
 };
 
 export const PAGE_TITLE: Record<Page, string> = {
@@ -17,6 +18,7 @@ export const PAGE_TITLE: Record<Page, string> = {
   savings: "Tiết kiệm",
   analytics: "Phân tích",
   categories: "Danh mục",
+  family: "Gia đình",
 };
 
 function pageFromHash(hash: string): Page {
@@ -51,13 +53,14 @@ const icons: Record<Page | "admin" | "logout" | "install", ReactNode> = {
   planned: <Icon><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /><path d="M8 14h3" /></Icon>,
   savings: <Icon><path d="M5 11a7 6 0 0 1 13.5-2H20v4l-2 1v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11Z" /><path d="M10 7.5h3" /></Icon>,
   analytics: <Icon><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Icon>,
+  family: <Icon><circle cx="9" cy="8" r="3.2" /><circle cx="17" cy="9.5" r="2.4" /><path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" /><path d="M15 14.6c2.6-.4 4.9 1.1 5.5 4.4" /></Icon>,
   categories: <Icon><rect x="3" y="3" width="7.5" height="7.5" rx="1.8" /><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.8" /><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.8" /><path d="M17.25 14v6.5M14 17.25h6.5" /></Icon>,
   admin: <Icon><path d="M12 3 4 6v6c0 4.5 3.4 8.2 8 9 4.6-.8 8-4.5 8-9V6l-8-3Z" /><path d="m9 12 2 2 4-4" /></Icon>,
   install: <Icon><path d="M12 3v12M7 10l5 5 5-5" /><path d="M5 20h14" /></Icon>,
   logout: <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4M6 12h10" /></Icon>,
 };
 
-const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "analytics", "categories"];
+const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "analytics", "family", "categories"];
 
 type SidebarProps = {
   page: Page;
@@ -70,6 +73,8 @@ type SidebarProps = {
   userName: string;
   isAdmin: boolean;
   pendingCount: number;
+  /** Số lời mời vào gia đình đang chờ người dùng trả lời. */
+  invitationCount: number;
   onAdmin: () => void;
   onInstall: () => void;
   onSignOut: () => void;
@@ -85,6 +90,7 @@ export default function Sidebar({
   userName,
   isAdmin,
   pendingCount,
+  invitationCount,
   onAdmin,
   onInstall,
   onSignOut,
@@ -129,6 +135,7 @@ export default function Sidebar({
             {icons[item]}
             <span className="sidebar-label">{PAGE_TITLE[item]}</span>
             {item === "planned" && pendingCount > 0 && <span className="sidebar-badge" aria-label={`${pendingCount} khoản`}>{pendingCount}</span>}
+            {item === "family" && invitationCount > 0 && <span className="sidebar-badge" aria-label={`${invitationCount} lời mời`}>{invitationCount}</span>}
           </a>
         ))}
       </nav>

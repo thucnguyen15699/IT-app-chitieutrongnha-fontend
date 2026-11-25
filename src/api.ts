@@ -3,7 +3,11 @@ import type {
   AdminUser,
   AuthResponse,
   CreateTransaction,
+  FamilyDetails,
+  FamilySummary,
   FamilyTransaction,
+  IncomingInvitation,
+  InviteResult,
   ContributionType,
   PlannedExpense,
   PlannedExpenseInput,
@@ -20,11 +24,21 @@ import type {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
+/**
+ * Gia đình quản trị viên đang chọn để xem (chỉ đọc). null = gia đình của chính mình.
+ * Backend chỉ chấp nhận header này với tài khoản ADMIN.
+ */
+let viewingFamilyId: number | null = null;
+export function setViewingFamily(familyId: number | null) {
+  viewingFamilyId = familyId;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(viewingFamilyId !== null ? { "X-Family-Id": String(viewingFamilyId) } : {}),
       ...options.headers,
     },
   });
@@ -221,4 +235,45 @@ export function createTransactionCategory(token: string, name: string, type: Tra
 
 export function deleteTransactionCategory(token: string, id: number) {
   return request<void>(`/transactions/categories/${id}`, { method: "DELETE", headers: authHeader(token) });
+}
+
+// ----- Gia đình & lời mời -----
+
+export function getMyFamily(token: string) {
+  return request<FamilyDetails>("/family", { headers: authHeader(token) });
+}
+
+/** Tạo gia đình cho người dùng chưa thuộc gia đình nào. */
+export function createFamily(token: string, name: string) {
+  return request<FamilyDetails>("/family", { method: "POST", headers: authHeader(token), body: JSON.stringify({ name }) });
+}
+
+export function renameFamily(token: string, name: string) {
+  return request<FamilyDetails>("/family", { method: "PUT", headers: authHeader(token), body: JSON.stringify({ name }) });
+}
+
+export function inviteToFamily(token: string, invite: { email: string; phoneNumber: string; message: string }) {
+  return request<InviteResult>("/family/invitations", { method: "POST", headers: authHeader(token), body: JSON.stringify(invite) });
+}
+
+export function cancelFamilyInvitation(token: string, id: number) {
+  return request<void>(`/family/invitations/${id}`, { method: "DELETE", headers: authHeader(token) });
+}
+
+export function getMyInvitations(token: string) {
+  return request<IncomingInvitation[]>("/invitations/mine", { headers: authHeader(token) });
+}
+
+export function acceptInvitation(token: string, id: number) {
+  return request<{ message: string }>(`/invitations/${id}/accept`, { method: "POST", headers: authHeader(token) });
+}
+
+export function declineInvitation(token: string, id: number) {
+  return request<{ message: string }>(`/invitations/${id}/decline`, { method: "POST", headers: authHeader(token) });
+}
+
+// ----- Quản trị -----
+
+export function getAdminFamilies(token: string) {
+  return request<FamilySummary[]>("/admin/families", { headers: authHeader(token) });
 }

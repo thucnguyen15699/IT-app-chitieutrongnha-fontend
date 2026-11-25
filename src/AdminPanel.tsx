@@ -1,33 +1,43 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { createAdminUser, getAdminUsers } from "./api";
-import type { AdminUser } from "./types";
+import { createAdminUser, getAdminFamilies, getAdminUsers } from "./api";
+import { formatDate } from "./format";
+import type { AdminUser, FamilySummary } from "./types";
 
 type AdminPanelProps = {
   token: string;
   onBack: () => void;
   onSignOut: () => void;
+  /** Mở Dashboard ở chế độ xem (chỉ đọc) của một gia đình. */
+  onViewFamily: (family: { id: number; name: string }) => void;
 };
 
-export default function AdminPanel({ token, onBack, onSignOut }: AdminPanelProps) {
+export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: AdminPanelProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [families, setFamilies] = useState<FamilySummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [familyMode, setFamilyMode] = useState<"existing" | "new">("existing");
+  const [familyId, setFamilyId] = useState("");
 
-  async function refreshUsers() {
+  async function refresh() {
     setError("");
     try {
-      setUsers(await getAdminUsers(token));
+      const [userList, familyList] = await Promise.all([getAdminUsers(token), getAdminFamilies(token)]);
+      setUsers(userList);
+      setFamilies(familyList);
+      setFamilyId((current) => current || (familyList[0] ? String(familyList[0].id) : ""));
+      if (familyList.length === 0) setFamilyMode("new");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Không tải được danh sách tài khoản.");
+      setError(requestError instanceof Error ? requestError.message : "Không tải được dữ liệu quản trị.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    void refreshUsers();
+    void refresh();
   }, [token]);
 
   async function handleCreate(event: FormEvent<HTMLFormElement>) {
@@ -38,17 +48,18 @@ export default function AdminPanel({ token, onBack, onSignOut }: AdminPanelProps
     setBusy(true);
     const form = new FormData(formElement);
     try {
-      await createAdminUser(token, {
+      const created = await createAdminUser(token, {
         name: String(form.get("name") ?? "").trim(),
         username: String(form.get("username") ?? "").trim(),
         email: String(form.get("email") ?? "").trim(),
         phoneNumber: String(form.get("phoneNumber") ?? "").trim(),
         password: String(form.get("password") ?? ""),
-        familyName: String(form.get("familyName") ?? "").trim(),
+        familyId: familyMode === "existing" ? Number(familyId) : null,
+        familyName: familyMode === "new" ? String(form.get("familyName") ?? "").trim() : null,
       });
       formElement.reset();
-      setNotice("Đã tạo tài khoản. Người dùng có thể đăng nhập bằng tên đăng nhập.");
-      await refreshUsers();
+      setNotice(`Đã tạo tài khoản ${created.username} trong gia đình "${created.familyName}". Người dùng đăng nhập bằng tên đăng nhập.`);
+      await refresh();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Không tạo được tài khoản.");
     } finally {
@@ -70,8 +81,10 @@ export default function AdminPanel({ token, onBack, onSignOut }: AdminPanelProps
 
       <div className="admin-content">
         <span className="eyebrow">QUẢN TRỊ HỆ THỐNG</span>
-        <h1>Quản lý tài khoản</h1>
-        <p className="admin-intro">Tạo tài khoản thành viên. Email không bắt buộc khi quản trị viên tạo tài khoản.</p>
+        <h1>Quản lý tài khoản & gia đình</h1>
+        <p className="admin-intro">
+          Mỗi gia đình chỉ thấy dữ liệu của mình. Quản trị viên có thể xem (không sửa) dữ liệu của bất kỳ gia đình nào.
+        </p>
 
         <section className="admin-card">
           <h2>Tạo tài khoản</h2>
@@ -84,8 +97,27 @@ export default function AdminPanel({ token, onBack, onSignOut }: AdminPanelProps
             <input id="admin-email" name="email" type="email" maxLength={254} />
             <label htmlFor="admin-phone">Số điện thoại (không bắt buộc)</label>
             <input id="admin-phone" name="phoneNumber" type="tel" maxLength={30} />
-            <label htmlFor="admin-family">Tên gia đình</label>
-            <input id="admin-family" name="familyName" required maxLength={120} />
+
+            <span className="admin-form-label">Gia đình</span>
+            <div className="segmented admin-family-mode" role="group" aria-label="Cách gán gia đình">
+              <button type="button" className={familyMode === "existing" ? "active" : ""} aria-pressed={familyMode === "existing"} disabled={families.length === 0} onClick={() => setFamilyMode("existing")}>Gia đình có sẵn</button>
+              <button type="button" className={familyMode === "new" ? "active" : ""} aria-pressed={familyMode === "new"} onClick={() => setFamilyMode("new")}>Tạo gia đình mới</button>
+            </div>
+            {familyMode === "existing" ? (
+              <>
+                <label htmlFor="admin-family-id">Chọn gia đình</label>
+                <select id="admin-family-id" value={familyId} required onChange={(event) => setFamilyId(event.target.value)}>
+                  {families.map((family) => (
+                    <option key={family.id} value={family.id}>{family.name} — {family.memberCount} thành viên</option>
+                  ))}
+                </select>
+              </>
+            ) : (
+              <>
+                <label htmlFor="admin-family">Tên gia đình mới</label>
+                <input id="admin-family" name="familyName" required maxLength={120} />
+              </>
+            )}
             <label htmlFor="admin-password">Mật khẩu ban đầu</label>
             <input id="admin-password" name="password" type="password" required minLength={8} maxLength={72} autoComplete="new-password" />
             {error && <div className="form-error" role="alert">{error}</div>}
@@ -98,20 +130,50 @@ export default function AdminPanel({ token, onBack, onSignOut }: AdminPanelProps
 
         <section className="admin-card">
           <div className="section-heading">
-            <h2>Tài khoản hiện có</h2>
-            <button className="text-button" type="button" onClick={() => void refreshUsers()}>Làm mới</button>
+            <h2>Các gia đình ({families.length})</h2>
+            <button className="text-button" type="button" onClick={() => void refresh()}>Làm mới</button>
           </div>
           {loading ? <p>Đang tải...</p> : (
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
-                  <tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Email</th><th>Điện thoại</th><th>Vai trò</th></tr>
+                  <tr><th>Tên gia đình</th><th>Thành viên</th><th>Ngày tạo</th><th /></tr>
+                </thead>
+                <tbody>
+                  {families.map((family) => (
+                    <tr key={family.id}>
+                      <td>{family.name}</td>
+                      <td>{family.memberCount}</td>
+                      <td>{formatDate(family.createdAt.slice(0, 10))}</td>
+                      <td>
+                        <button type="button" className="transaction-edit-button" onClick={() => onViewFamily({ id: family.id, name: family.name })}>
+                          Xem dữ liệu
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        <section className="admin-card">
+          <div className="section-heading">
+            <h2>Tài khoản hiện có ({users.length})</h2>
+          </div>
+          {loading ? <p>Đang tải...</p> : (
+            <div className="admin-table-wrap">
+              <table className="admin-table">
+                <thead>
+                  <tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Gia đình</th><th>Email</th><th>Điện thoại</th><th>Vai trò</th></tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
                     <tr key={user.id}>
                       <td>{user.username}</td>
                       <td>{user.name}</td>
+                      <td>{user.familyName ?? <em>Chưa có</em>}</td>
                       <td>{user.email ?? "—"}</td>
                       <td>{user.phoneNumber ?? "—"}</td>
                       <td>{user.roles.join(", ")}</td>

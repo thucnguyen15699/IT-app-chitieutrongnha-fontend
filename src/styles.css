@@ -517,3 +517,63 @@ body.drawer-lock { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .sidebar, .sidebar-backdrop { transition: none; }
 }
+
+/* =====================================================================
+   Gia đình, lời mời, chế độ xem của quản trị viên
+   ===================================================================== */
+.field-hint { display: block; margin-top: 6px; color: #8c9589; font-size: 11px; line-height: 1.5; }
+
+/* Hộp lời mời nhận được */
+.invite-inbox { margin-bottom: 16px; padding: 16px; border: 1px solid #f0d9a8; border-radius: 13px; background: #fffaf0; }
+.invite-inbox-head { display: flex; gap: 12px; align-items: flex-start; }
+.invite-inbox-icon { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 10px; color: #9a6410; background: #fdecc8; font-size: 18px; }
+.invite-inbox-head strong { color: #5a4413; font-size: 14px; }
+.invite-inbox-head p { margin: 3px 0 0; color: #8a7448; font-size: 12px; }
+.invite-inbox-list { margin: 12px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.invite-inbox-list li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px; border: 1px solid #f3e4c4; border-radius: 10px; background: #fff; }
+.invite-inbox-text { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.invite-inbox-text strong { color: #344436; font-size: 14px; }
+.invite-inbox-text span { color: #7c867b; font-size: 11px; }
+.invite-inbox-text q { color: #526052; font-size: 12px; font-style: italic; }
+.invite-inbox-text small { color: #b3361f; font-size: 11px; }
+.invite-inbox-actions { display: flex; gap: 8px; }
+.invite-inbox-actions .button { min-height: 38px; padding: 0 16px; font-size: 12px; }
+
+/* Người dùng chưa có gia đình */
+.no-family-page { min-height: 100vh; min-height: 100dvh; background: #f6f7f2; }
+.no-family-page .topbar { padding-top: env(safe-area-inset-top); }
+.no-family-content { width: min(680px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 max(24px, env(safe-area-inset-bottom)); }
+.no-family-content h1 { margin: 8px 0; color: #2d4031; font-family: Georgia, "Times New Roman", serif; font-size: 30px; font-weight: 500; }
+.no-family-intro { margin: 0 0 20px; color: #7c867b; font-size: 13px; line-height: 1.6; }
+.no-family-empty { margin: 0 0 16px; padding: 14px; border: 1px dashed #dfe5da; border-radius: 10px; color: #858f83; font-size: 12px; text-align: center; }
+.no-family-create { min-height: 0; }
+.no-family-create h2 { margin: 0 0 12px; color: #344436; font-family: Georgia, "Times New Roman", serif; font-size: 20px; font-weight: 500; }
+
+/* Trang Gia đình */
+.family-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.family-title-row { display: flex; align-items: baseline; gap: 12px; margin: 6px 0 12px; }
+.family-title-row h2, .family-section-title { margin: 6px 0 4px; color: #344436; font-family: Georgia, "Times New Roman", serif; font-size: 22px; font-weight: 500; }
+.family-rename { margin-top: 8px; }
+.family-subtitle { margin: 22px 0 6px; color: #435244; font-size: 13px; font-weight: 650; }
+.member-avatar { width: 32px; height: 32px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: #fff; background: #8aa57f; font-size: 13px; font-weight: 700; }
+.manage-list strong small { display: block; margin-top: 2px; color: #969e94; font-size: 11px; font-weight: 500; }
+.invite-note { margin: 14px 0 4px; padding: 10px 12px; border-radius: 9px; color: #5f6b5f; background: #f3f6f0; font-size: 11px; line-height: 1.6; }
+
+/* Quản trị viên chọn gia đình để xem */
+.family-switcher { max-width: 220px; height: 36px; padding: 0 10px; border: 1px solid #dfe5da; border-radius: 9px; color: #39483b; background: #fff; font-size: 12px; }
+.admin-view-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; padding: 12px 14px; border: 1px solid #c9d8f0; border-radius: 11px; color: #2a4a75; background: #eef4fc; font-size: 12px; }
+.admin-view-banner .button { min-height: 34px; padding: 0 12px; font-size: 11px; }
+.admin-form-label { align-self: end; color: #37463a; font-size: 12px; font-weight: 650; }
+.admin-family-mode { justify-self: start; }
+.admin-form select { width: 100%; height: 42px; border: 1px solid #e4e8df; border-radius: 8px; padding: 0 11px; outline: none; background: #fff; }
+
+@media (max-width: 1023px) {
+  .family-layout { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .family-switcher { max-width: 140px; font-size: 16px; }
+  .topbar-title { flex-wrap: wrap; row-gap: 4px; }
+  .invite-inbox-actions { width: 100%; }
+  .invite-inbox-actions .button { flex: 1; min-height: 44px; }
+  .no-family-content h1 { font-size: 25px; }
+}

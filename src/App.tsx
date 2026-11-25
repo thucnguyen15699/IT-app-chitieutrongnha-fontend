@@ -4,6 +4,9 @@ import AnalyticsPanel from "./AnalyticsPanel";
 import CategoriesPanel from "./CategoriesPanel";
 import PlannedExpensesPanel from "./PlannedExpensesPanel";
 import SavingsPanel from "./SavingsPanel";
+import FamilyPanel from "./FamilyPanel";
+import InvitationsInbox from "./InvitationsInbox";
+import NoFamilyScreen from "./NoFamilyScreen";
 import Sidebar, { PAGE_TITLE, usePage } from "./Sidebar";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
@@ -12,7 +15,10 @@ import {
   createTransactionCategory,
   getCurrentUser,
   getMonthlyTransactions,
+  getAdminFamilies,
+  getMyInvitations,
   getPlanningSummary,
+  setViewingFamily,
   getSpendingTargets,
   getTransactionCategories,
   login,
@@ -22,7 +28,9 @@ import {
 } from "./api";
 import type {
   AuthMode,
+  FamilySummary,
   FamilyTransaction,
+  IncomingInvitation,
   PlanningSummary,
   SpendingTarget,
   TransactionCategory,
@@ -120,9 +128,23 @@ function App() {
 
   function signOut() {
     localStorage.removeItem("nhaminh_token");
+    chooseViewFamily(null);
     setUser(null);
     setView("dashboard");
     setMode("login");
+  }
+
+  /** Quản trị viên chọn gia đình để xem (null = gia đình của mình). */
+  const [viewFamily, setViewFamily] = useState<{ id: number; name: string } | null>(null);
+  function chooseViewFamily(family: { id: number; name: string } | null) {
+    setViewingFamily(family?.id ?? null);
+    setViewFamily(family);
+  }
+
+  /** Tải lại hồ sơ, ví dụ sau khi tạo gia đình hoặc nhận lời mời. */
+  function reloadProfile() {
+    const token = localStorage.getItem("nhaminh_token");
+    if (token) getCurrentUser(token).then(setUser).catch(() => undefined);
   }
 
   async function installApp() {
@@ -136,17 +158,32 @@ function App() {
     return <main className="loading-screen"><span className="brand-mark">n</span><p>Đang mở nhà mình...</p></main>;
   }
 
+  const isAdmin = user?.roles.includes("ADMIN") ?? false;
+  const token = localStorage.getItem("nhaminh_token") ?? "";
+
   return user ? (
-    view === "admin" && user.roles.includes("ADMIN") ? (
+    view === "admin" && isAdmin ? (
       <AdminPanel
-        token={localStorage.getItem("nhaminh_token") ?? ""}
+        token={token}
         onBack={() => setView("dashboard")}
         onSignOut={signOut}
+        onViewFamily={(family) => {
+          // Chọn đúng gia đình của mình thì không cần chế độ "chỉ xem".
+          chooseViewFamily(family.id === user.familyId ? null : family);
+          setView("dashboard");
+        }}
       />
+    ) : user.familyId === null && viewFamily === null ? (
+      <NoFamilyScreen token={token} user={user} onJoined={reloadProfile} onSignOut={signOut} />
     ) : (
       <Dashboard
-        token={localStorage.getItem("nhaminh_token") ?? ""}
+        // Đổi gia đình đang xem thì dựng lại toàn bộ để mọi dữ liệu tải lại.
+        key={viewFamily?.id ?? "own"}
+        token={token}
         user={user}
+        viewFamily={viewFamily}
+        onChooseFamily={chooseViewFamily}
+        onFamilyRenamed={(name) => setUser((current) => current && { ...current, familyName: name })}
         onAdmin={() => setView("admin")}
         onSignOut={signOut}
         onInstall={installApp}
@@ -203,8 +240,12 @@ function AuthScreen({ mode, setMode, onSubmit, error, notice, busy }: AuthScreen
               <>
                 <label htmlFor="name">Tên của bạn</label>
                 <input id="name" name="name" placeholder="Ví dụ: Minh Anh" autoComplete="name" required maxLength={100} />
-                <label htmlFor="familyName">Tên gia đình</label>
-                <input id="familyName" name="familyName" placeholder="Ví dụ: Nhà Mình" required maxLength={120} />
+                <label htmlFor="familyName">Đặt tên gia đình nhỏ của bạn</label>
+                <input id="familyName" name="familyName" placeholder="Ví dụ: Nhà Mình" maxLength={120} />
+                <small className="field-hint">
+                  Được người thân mời vào gia đình? Bỏ trống ô này, đăng ký bằng đúng email/số điện thoại được mời,
+                  rồi đăng nhập để nhận lời mời.
+                </small>
               </>
             )}
             <label htmlFor="username">Tên đăng nhập</label>
@@ -261,13 +302,35 @@ function AuthScreen({ mode, setMode, onSubmit, error, notice, busy }: AuthScreen
 type DashboardProps = {
   token: string;
   user: UserProfile;
+  /** Gia đình quản trị viên đang xem (chỉ đọc); null = gia đình của mình. */
+  viewFamily: { id: number; name: string } | null;
+  onChooseFamily: (family: { id: number; name: string } | null) => void;
+  onFamilyRenamed: (name: string) => void;
   onAdmin: () => void;
   onSignOut: () => void;
   onInstall: () => void;
   canInstall: boolean;
 };
 
-function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: DashboardProps) {
+function Dashboard({
+  token,
+  user,
+  viewFamily,
+  onChooseFamily,
+  onFamilyRenamed,
+  onAdmin,
+  onSignOut,
+  onInstall,
+  canInstall,
+}: DashboardProps) {
+  const isAdmin = user.roles.includes("ADMIN");
+  const [invitations, setInvitations] = useState<IncomingInvitation[]>([]);
+  const [adminFamilies, setAdminFamilies] = useState<FamilySummary[]>([]);
+
+  useEffect(() => {
+    getMyInvitations(token).then(setInvitations).catch(() => setInvitations([]));
+    if (isAdmin) getAdminFamilies(token).then(setAdminFamilies).catch(() => setAdminFamilies([]));
+  }, [token, isAdmin]);
   const [showInstallHelp, setShowInstallHelp] = useState(false);
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -589,7 +652,8 @@ function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: D
         collapsed={collapsed}
         onToggleCollapsed={toggleCollapsed}
         onClose={() => setDrawerOpen(false)}
-        familyName={user.familyName}
+        familyName={viewFamily?.name ?? user.familyName ?? ""}
+        invitationCount={invitations.length}
         userName={user.name}
         isAdmin={user.roles.includes("ADMIN")}
         pendingCount={planning?.pendingCount ?? 0}
@@ -617,6 +681,24 @@ function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: D
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
           </button>
           <h1>{PAGE_TITLE[page]}</h1>
+          {isAdmin && adminFamilies.length > 0 && (
+            <select
+              className="family-switcher"
+              aria-label="Chọn gia đình để xem"
+              value={viewFamily?.id ?? ""}
+              onChange={(event) => {
+                const chosen = adminFamilies.find((family) => String(family.id) === event.target.value);
+                onChooseFamily(chosen && chosen.id !== user.familyId ? { id: chosen.id, name: chosen.name } : null);
+              }}
+            >
+              <option value="">Gia đình của tôi</option>
+              {adminFamilies
+                .filter((family) => family.id !== user.familyId)
+                .map((family) => (
+                  <option key={family.id} value={family.id}>{family.name} ({family.memberCount})</option>
+                ))}
+            </select>
+          )}
         </div>
         <div className="topbar-actions">
           {canInstall && (
@@ -635,6 +717,20 @@ function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: D
       )}
 
       <div className="dashboard-content">
+        {viewFamily && (
+          <div className="admin-view-banner" role="status">
+            <span>Đang xem gia đình <b>{viewFamily.name}</b> với quyền quản trị — <b>chỉ xem</b>, không thể thêm hay sửa.</span>
+            <button type="button" className="button button-install" onClick={() => onChooseFamily(null)}>Về gia đình của tôi</button>
+          </div>
+        )}
+        {!viewFamily && (
+          <InvitationsInbox
+            token={token}
+            invitations={invitations}
+            onAccepted={() => window.location.reload()}
+            onDeclined={(id) => setInvitations((current) => current.filter((entry) => entry.id !== id))}
+          />
+        )}
         {page === "overview" && (<>
         <section className="welcome-row">
           <div>
@@ -642,7 +738,7 @@ function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: D
             <h1>Chào {firstName}, <span className="wave">☀</span></h1>
             <p>Mình cùng xem tháng này nhà mình thế nào nhé.</p>
           </div>
-          <div className="family-pill"><span className="family-icon">⌂</span><span><small>Gia đình</small><strong>{user.familyName}</strong></span><span className="pill-dot" /></div>
+          <div className="family-pill"><span className="family-icon">⌂</span><span><small>Gia đình</small><strong>{viewFamily?.name ?? user.familyName}</strong></span><span className="pill-dot" /></div>
         </section>
 
         <section className="summary-grid" aria-label="Tổng quan thu chi tháng">
@@ -917,6 +1013,7 @@ function Dashboard({ token, user, onAdmin, onSignOut, onInstall, canInstall }: D
         {page === "planned" && <PlannedExpensesPanel token={token} onChanged={handlePlannedChanged} />}
         {page === "savings" && <SavingsPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />}
         {page === "analytics" && <AnalyticsPanel token={token} refreshKey={statsVersion} />}
+        {page === "family" && <FamilyPanel token={token} onRenamed={onFamilyRenamed} />}
         {page === "categories" && (
           <CategoriesPanel token={token} onChanged={() => setCategoriesVersion((version) => version + 1)} />
         )}

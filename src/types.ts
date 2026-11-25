@@ -5,8 +5,9 @@ export type UserProfile = {
   email: string | null;
   phoneNumber: string | null;
   emailVerified: boolean;
-  familyId: number;
-  familyName: string;
+  /** null khi người dùng chưa thuộc gia đình nào (đang chờ lời mời). */
+  familyId: number | null;
+  familyName: string | null;
   roles: string[];
 };
 
@@ -26,17 +27,58 @@ export type AdminUser = {
   email: string | null;
   phoneNumber: string | null;
   emailVerified: boolean;
+  familyId: number | null;
   familyName: string | null;
   roles: string[];
 };
 
+/** Gán vào gia đình có sẵn (familyId) hoặc tạo gia đình mới (familyName). */
 export type AdminCreateUser = {
   name: string;
   username: string;
   email: string;
   phoneNumber: string;
   password: string;
+  familyId: number | null;
+  familyName: string | null;
+};
+
+export type FamilySummary = { id: number; name: string; memberCount: number; createdAt: string };
+
+export type FamilyMember = { userId: number; name: string; username: string; role: string; joinedAt: string; me: boolean };
+
+export type SentInvitation = {
+  id: number;
+  email: string | null;
+  phoneNumber: string | null;
+  message: string | null;
+  invitedByName: string;
+  createdAt: string;
+};
+
+export type FamilyDetails = {
+  id: number;
+  name: string;
+  /** OWNER / MEMBER, hoặc ADMIN_VIEW khi quản trị viên đang xem gia đình khác. */
+  myRole: string;
+  canManage: boolean;
+  canInvite: boolean;
+  members: FamilyMember[];
+  pendingInvitations: SentInvitation[];
+};
+
+export type InviteResult = { invitation: SentInvitation; emailSent: boolean; note: string };
+
+export type IncomingInvitation = {
+  id: number;
+  familyId: number;
   familyName: string;
+  invitedByName: string;
+  message: string | null;
+  createdAt: string;
+  matchedBy: "EMAIL" | "PHONE";
+  /** Gia đình hiện tại sẽ rời đi nếu đồng ý (null nếu chưa có). */
+  currentFamilyName: string | null;
 };
 
 export type TransactionType = "INCOME" | "EXPENSE";
