@@ -22,6 +22,7 @@ import {
   getMonthlyTransactions,
   getAdminFamilies,
   getMyInvitations,
+  getPlannedExpenses,
   getPlanningSummary,
   setViewingFamily,
   getSpendingTargets,
@@ -36,6 +37,7 @@ import type {
   FamilySummary,
   FamilyTransaction,
   IncomingInvitation,
+  PlannedExpense,
   PlanningSummary,
   SpendingTarget,
   TransactionCategory,
@@ -407,6 +409,7 @@ function Dashboard({
   const [transactionsVersion, setTransactionsVersion] = useState(0);
   const [planningVersion, setPlanningVersion] = useState(0);
   const [planning, setPlanning] = useState<PlanningSummary | null>(null);
+  const [plannedItems, setPlannedItems] = useState<PlannedExpense[]>([]);
   const [categoriesVersion, setCategoriesVersion] = useState(0);
   const [addingCategory, setAddingCategory] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -441,6 +444,22 @@ function Dashboard({
     return totals;
   }, [transactions]);
   const selectedDayTotals = dailyTotals.get(selectedDate);
+  // Khoản sắp phải chi theo ngày hạn — hiện trên lịch bằng màu cam, khác thu/chi đã ghi.
+  const plannedByDay = useMemo(() => {
+    const byDay = new Map<string, { total: number; items: PlannedExpense[] }>();
+    for (const item of plannedItems) {
+      const current = byDay.get(item.dueOn) ?? { total: 0, items: [] };
+      current.total += item.amount;
+      current.items.push(item);
+      byDay.set(item.dueOn, current);
+    }
+    return byDay;
+  }, [plannedItems]);
+  const selectedDayPlanned = plannedByDay.get(selectedDate);
+  const todayKey = toDateInput(new Date());
+  const selectedIsFuture = selectedDate > todayKey;
+  // Cho xem trước tối đa 12 tháng tới để thấy các khoản sắp chi.
+  const lastViewableMonthKey = toMonthInput(new Date(new Date().getFullYear(), new Date().getMonth() + 12, 1));
   const calendarDays = useMemo(() => {
     const year = month.getFullYear();
     const monthIndex = month.getMonth();
@@ -484,6 +503,11 @@ function Dashboard({
       active = false;
     };
   }, [token, monthKey, planningVersion, statsVersion]);
+
+  // Khoản sắp phải chi (chưa chi) để hiện trên lịch; tải lại khi có thay đổi kế hoạch hoặc giao dịch.
+  useEffect(() => {
+    getPlannedExpenses(token).then(setPlannedItems).catch(() => setPlannedItems([]));
+  }, [token, planningVersion, transactionsVersion]);
 
   // Ngăn kéo trên điện thoại: phím Esc để đóng, khóa cuộn trang phía sau khi đang mở.
   useEffect(() => {
@@ -848,7 +872,7 @@ function Dashboard({
               <div className="month-navigation">
                 <button type="button" aria-label="Tháng trước" onClick={() => changeMonth(-1)}>‹</button>
                 <strong>{new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(month)}</strong>
-                <button type="button" aria-label="Tháng sau" disabled={monthKey >= currentMonthKey} onClick={() => changeMonth(1)}>›</button>
+                <button type="button" aria-label="Tháng sau" disabled={monthKey >= lastViewableMonthKey} onClick={() => changeMonth(1)}>›</button>
               </div>
             </div>
             <div className="calendar-grid" role="grid" aria-label="Lịch giao dịch trong tháng">
@@ -859,12 +883,13 @@ function Dashboard({
                 if (day === null) return <div className="calendar-cell calendar-cell-empty" role="gridcell" key={`empty-${index}`} />;
                 const date = toDateInput(new Date(month.getFullYear(), month.getMonth(), day));
                 const totals = dailyTotals.get(date);
+                const planned = plannedByDay.get(date);
                 return (
                   <button
-                    className={`calendar-cell${selectedDate === date ? " selected" : ""}`}
+                    className={`calendar-cell${selectedDate === date ? " selected" : ""}${date > todayKey ? " future" : ""}`}
                     type="button"
                     role="gridcell"
-                    aria-label={`${date}${totals ? `, thu ${formatCurrency(totals.income)}, chi ${formatCurrency(totals.expense)}` : ""}`}
+                    aria-label={`${date}${totals ? `, thu ${formatCurrency(totals.income)}, chi ${formatCurrency(totals.expense)}` : ""}${planned ? `, sắp phải chi ${formatCurrency(planned.total)}` : ""}`}
                     aria-pressed={selectedDate === date}
                     key={date}
                     onClick={() => selectDate(date)}
@@ -872,6 +897,7 @@ function Dashboard({
                     <span className="calendar-day-number">{day}</span>
                     {totals?.income ? <span className="calendar-day-total income-total">+{formatCompactCurrency(totals.income)}</span> : null}
                     {totals?.expense ? <span className="calendar-day-total expense-total">-{formatCompactCurrency(totals.expense)}</span> : null}
+                    {planned ? <span className="calendar-day-total planned-total" title="Khoản sắp phải chi">◷{formatCompactCurrency(planned.total)}</span> : null}
                   </button>
                 );
               })}
@@ -879,6 +905,7 @@ function Dashboard({
             <div className="calendar-legend">
               <span><i className="legend-dot income-dot" /> Thu</span>
               <span><i className="legend-dot expense-dot" /> Chi</span>
+              <span><i className="legend-dot planned-dot" /> ◷ Sắp phải chi <small>(đến hạn tự ghi thành khoản chi)</small></span>
             </div>
           </article>
 
@@ -1017,11 +1044,17 @@ function Dashboard({
               />
               {transactionError && <div className="form-error" role="alert">{transactionError}</div>}
               {transactionNotice && <div className="form-success" role="status">{transactionNotice}</div>}
+              {selectedIsFuture && (
+                <div className="future-date-hint" role="status">
+                  Ngày này chưa tới nên chưa ghi được khoản đã chi. Khoản biết trước sẽ phải chi hãy thêm ở{" "}
+                  <button type="button" className="link-button inline" onClick={() => goTo("planned")}>Khoản sắp phải chi</button>.
+                </div>
+              )}
               <div className="transaction-form-actions">
                 <button
                   className="button button-primary transaction-submit"
                   type="submit"
-                  disabled={transactionBusy || !categories.some((category) => String(category.id) === categoryId)}
+                  disabled={transactionBusy || selectedIsFuture || !categories.some((category) => String(category.id) === categoryId)}
                 >
                   {transactionBusy ? "Đang lưu..." : editingTransactionId !== null ? "Lưu thay đổi" : transactionType === "INCOME" ? "Lưu khoản thu" : "Lưu khoản chi"}
                 </button>
@@ -1066,14 +1099,34 @@ function Dashboard({
                 </article>
               ))}
             </div>
-          ) : (
+          ) : !selectedDayPlanned ? (
             <p className="transaction-empty">Chưa có giao dịch trong ngày này.</p>
+          ) : null}
+          {selectedDayPlanned && (
+            <div className="transaction-list planned-day-list">
+              {selectedDayPlanned.items.map((item) => (
+                <article className="transaction-row planned-day-row" key={`planned-${item.id}`}>
+                  <div className="transaction-type-mark planned-mark" aria-hidden="true">◷</div>
+                  <div className="transaction-description">
+                    <strong>
+                      {item.categoryName}
+                      <em className="transaction-target-tag">{item.targetName}</em>
+                      <em className="planned-tag">{item.dueOn <= todayKey ? "Đến hạn hôm nay" : "Sắp phải chi"}</em>
+                    </strong>
+                    <span>{item.note} · tự ghi thành khoản chi vào ngày này</span>
+                  </div>
+                  <strong className="transaction-amount planned-total">-{formatCurrency(item.amount)}</strong>
+                  <button className="transaction-edit-button" type="button" onClick={() => goTo("planned")}>Xem</button>
+                </article>
+              ))}
+            </div>
           )}
-          {selectedDayTotals && (
+          {(selectedDayTotals || selectedDayPlanned) && (
             <div className="daily-total-row">
               <span>Tổng ngày</span>
-              {selectedDayTotals.income > 0 && <strong className="income-total">+{formatCurrency(selectedDayTotals.income)}</strong>}
-              {selectedDayTotals.expense > 0 && <strong className="expense-total">-{formatCurrency(selectedDayTotals.expense)}</strong>}
+              {selectedDayTotals && selectedDayTotals.income > 0 && <strong className="income-total">+{formatCurrency(selectedDayTotals.income)}</strong>}
+              {selectedDayTotals && selectedDayTotals.expense > 0 && <strong className="expense-total">-{formatCurrency(selectedDayTotals.expense)}</strong>}
+              {selectedDayPlanned && <strong className="planned-total">◷ sắp chi -{formatCurrency(selectedDayPlanned.total)}</strong>}
             </div>
           )}
         </section>
