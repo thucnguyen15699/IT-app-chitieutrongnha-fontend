@@ -36,7 +36,9 @@ jobs:
   deploy:
     name: Deploy ${{ github.ref_name == 'main' && 'prd' || github.ref_name == 'test' && 'test' || 'dev' }}
     needs: build
-    if: github.event_name != 'pull_request' && contains(fromJSON('["develop","test","main"]'), github.ref_name)
+    # Chỉ deploy khi đã thiết lập server và bật biến DEPLOY_ENABLED=true
+    # (Settings → Secrets and variables → Actions → tab Variables). Chưa bật thì bỏ qua, không báo lỗi.
+    if: vars.DEPLOY_ENABLED == 'true' && github.event_name != 'pull_request' && contains(fromJSON('["develop","test","main"]'), github.ref_name)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
