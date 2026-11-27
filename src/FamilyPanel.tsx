@@ -11,12 +11,15 @@ type FamilyPanelProps = {
   onRenamed: (name: string) => void;
   /** Từ trang thành viên chuyển sang trang mời. */
   onGoInvite: () => void;
+  /** Rời gia đình đang chọn (chỉ có ở trang thành viên). */
+  onLeave?: () => void;
+  canLeave?: boolean;
 };
 
 const ROLE_LABEL: Record<string, string> = { OWNER: "Chủ gia đình", MEMBER: "Thành viên" };
 
 /** Trang "Gia đình": thành viên, mời người thân bằng email/SĐT, lời mời đang chờ. */
-export default function FamilyPanel({ token, section, onRenamed, onGoInvite }: FamilyPanelProps) {
+export default function FamilyPanel({ token, section, onRenamed, onGoInvite, onLeave, canLeave = false }: FamilyPanelProps) {
   const [family, setFamily] = useState<FamilyDetails | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [name, setName] = useState("");
@@ -127,6 +130,12 @@ export default function FamilyPanel({ token, section, onRenamed, onGoInvite }: F
             </span>
             <button type="button" className="button button-primary" onClick={onGoInvite}>+ Mời thành viên</button>
           </div>
+        )}
+        {canLeave && onLeave && family.myRole !== "ADMIN_VIEW" && (
+          <p className="manage-hint family-leave-row">
+            Bạn có thể ở nhiều gia đình cùng lúc (gia đình nhỏ, bên nội, bên ngoại...) và chuyển qua lại ở menu bên trái.{" "}
+            <button type="button" className="link-button planned-delete" onClick={onLeave}>Rời gia đình này</button>
+          </p>
         )}
       </section>
       )}

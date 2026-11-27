@@ -58,6 +58,9 @@ export type SentInvitation = {
   createdAt: string;
 };
 
+/** Một gia đình mình đang tham gia. */
+export type FamilyOption = { id: number; name: string; role: string; memberCount: number };
+
 export type FamilyDetails = {
   id: number;
   name: string;
@@ -79,7 +82,7 @@ export type IncomingInvitation = {
   message: string | null;
   createdAt: string;
   matchedBy: "EMAIL" | "PHONE";
-  /** Gia đình hiện tại sẽ rời đi nếu đồng ý (null nếu chưa có). */
+  /** Không còn dùng: đồng ý lời mời không làm rời gia đình cũ nữa (luôn null). */
   currentFamilyName: string | null;
 };
 

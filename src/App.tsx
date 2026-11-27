@@ -24,7 +24,10 @@ import {
   getCurrentUser,
   getMonthlyTransactions,
   getAdminFamilies,
+  getMyFamilies,
   getMyInvitations,
+  createFamily,
+  leaveFamily,
   getPlannedExpenses,
   getPlanningSummary,
   setViewingFamily,
@@ -37,6 +40,7 @@ import {
 } from "./api";
 import type {
   AuthMode,
+  FamilyOption,
   FamilySummary,
   FamilyTransaction,
   IncomingInvitation,
@@ -60,6 +64,9 @@ const formatCompactCurrency = (amount: number) => {
   if (amount >= 1_000) return `${value.format(amount / 1_000)}k`;
   return value.format(amount);
 };
+
+/** Gia đình đang chọn (khi một người ở nhiều gia đình), nhớ cho lần mở sau. */
+const FAMILY_KEY = "nhaminh_family_id";
 
 const toMonthInput = (date: Date) =>
   `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
@@ -141,17 +148,86 @@ function App() {
     const currentToken = localStorage.getItem("nhaminh_token");
     if (currentToken) void disablePush(currentToken).catch(() => undefined);
     localStorage.removeItem("nhaminh_token");
-    chooseViewFamily(null);
+    localStorage.removeItem(FAMILY_KEY);
+    setViewFamily(null);
+    applyFamily(null);
+    setFamilies(null);
     setUser(null);
     setView("dashboard");
     setMode("login");
   }
 
-  /** Quản trị viên chọn gia đình để xem (null = gia đình của mình). */
+  // ---- Nhiều gia đình: một người ở được nhiều gia đình (gia đình nhỏ, bên nội, bên ngoại...) ----
+  /** Các gia đình mình đang tham gia; null = đang tải (hoặc chưa có gia đình). */
+  const [families, setFamilies] = useState<FamilyOption[] | null>(null);
+  /** Gia đình mình đang chọn để xem và ghi chép. */
+  const [activeFamilyId, setActiveFamilyId] = useState<number | null>(null);
+  const [familiesVersion, setFamiliesVersion] = useState(0);
+
+  /** Quản trị viên chọn gia đình KHÔNG thuộc về mình để xem (chỉ đọc); null = gia đình đang chọn của mình. */
   const [viewFamily, setViewFamily] = useState<{ id: number; name: string } | null>(null);
+
+  /** Đặt gia đình của mình đang dùng; mọi yêu cầu sau đó gửi kèm header X-Family-Id của gia đình này. */
+  function applyFamily(familyId: number | null) {
+    setActiveFamilyId(familyId);
+    setViewingFamily(familyId);
+  }
+
   function chooseViewFamily(family: { id: number; name: string } | null) {
-    setViewingFamily(family?.id ?? null);
+    // Admin chọn đúng một gia đình mình là thành viên → chuyển sang gia đình đó (được ghi), không "chỉ xem".
+    if (family && families?.some((entry) => entry.id === family.id)) {
+      switchFamily(family.id);
+      return;
+    }
+    setViewingFamily(family?.id ?? activeFamilyId);
     setViewFamily(family);
+  }
+
+  /** Chuyển sang một gia đình khác mình đang tham gia (nhớ lựa chọn cho lần mở sau). */
+  function switchFamily(familyId: number) {
+    localStorage.setItem(FAMILY_KEY, String(familyId));
+    setViewFamily(null);
+    applyFamily(familyId);
+  }
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem("nhaminh_token");
+    if (!user || !savedToken || user.familyId === null) {
+      setFamilies(null);
+      return;
+    }
+    let active = true;
+    getMyFamilies(savedToken)
+      .then((list) => {
+        if (!active) return;
+        const saved = Number(localStorage.getItem(FAMILY_KEY));
+        const chosen = list.find((family) => family.id === saved) ?? list[0] ?? null;
+        applyFamily(chosen?.id ?? null);
+        setFamilies(list);
+      })
+      .catch(() => {
+        if (!active) return;
+        applyFamily(null);
+        setFamilies([]);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.familyId, familiesVersion]);
+
+  /** Vừa vào thêm / tạo thêm gia đình: chuyển sang gia đình đó. */
+  function openFamilyAfterReload(familyId: number) {
+    localStorage.setItem(FAMILY_KEY, String(familyId));
+    window.location.reload();
+  }
+
+  /** Vừa rời gia đình đang chọn: về gia đình còn lại (hoặc màn hình "chưa có gia đình"). */
+  function handleLeftFamily() {
+    localStorage.removeItem(FAMILY_KEY);
+    applyFamily(null);
+    setFamilies(null);
+    window.location.reload();
   }
 
   /** Tải lại hồ sơ, ví dụ sau khi tạo gia đình hoặc nhận lời mời. */
@@ -174,15 +250,23 @@ function App() {
   const isAdmin = user?.roles.includes("ADMIN") ?? false;
   const token = localStorage.getItem("nhaminh_token") ?? "";
 
-  return user ? (
+  // Đang tải danh sách gia đình: chờ để không tải nhầm dữ liệu của gia đình mặc định trước.
+  if (user && user.familyId !== null && families === null) {
+    return <main className="loading-screen"><span className="brand-mark">n</span><p>Đang mở nhà mình...</p></main>;
+  }
+  const activeFamily = families?.find((family) => family.id === activeFamilyId) ?? null;
+  // Mọi chỗ hiển thị "gia đình của tôi" trong Dashboard dùng gia đình đang chọn.
+  const dashboardUser = user && activeFamily ? { ...user, familyId: activeFamily.id, familyName: activeFamily.name } : user;
+
+  return user && dashboardUser ? (
     view === "admin" && isAdmin ? (
       <AdminPanel
         token={token}
         onBack={() => setView("dashboard")}
         onSignOut={signOut}
         onViewFamily={(family) => {
-          // Chọn đúng gia đình của mình thì không cần chế độ "chỉ xem".
-          chooseViewFamily(family.id === user.familyId ? null : family);
+          // Chọn gia đình mình là thành viên thì chuyển sang (được ghi), không cần chế độ "chỉ xem".
+          chooseViewFamily(family);
           setView("dashboard");
         }}
       />
@@ -190,13 +274,20 @@ function App() {
       <NoFamilyScreen token={token} user={user} onJoined={reloadProfile} onSignOut={signOut} />
     ) : (
       <Dashboard
-        // Đổi gia đình đang xem thì dựng lại toàn bộ để mọi dữ liệu tải lại.
-        key={viewFamily?.id ?? "own"}
+        // Đổi gia đình thì dựng lại toàn bộ để mọi dữ liệu tải lại cho đúng gia đình.
+        key={viewFamily ? `view-${viewFamily.id}` : `own-${activeFamilyId ?? "default"}`}
         token={token}
-        user={user}
+        user={dashboardUser}
         viewFamily={viewFamily}
+        families={families ?? []}
         onChooseFamily={chooseViewFamily}
-        onFamilyRenamed={(name) => setUser((current) => current && { ...current, familyName: name })}
+        onSwitchFamily={switchFamily}
+        onJoinedFamily={openFamilyAfterReload}
+        onLeftFamily={handleLeftFamily}
+        onFamilyRenamed={(name) => {
+          setFamilies((current) => current?.map((family) => (family.id === activeFamilyId ? { ...family, name } : family)) ?? current);
+          setFamiliesVersion((version) => version + 1);
+        }}
         onProfileUpdated={setUser}
         onAdmin={() => setView("admin")}
         onSignOut={signOut}
@@ -355,7 +446,15 @@ type DashboardProps = {
   user: UserProfile;
   /** Gia đình quản trị viên đang xem (chỉ đọc); null = gia đình của mình. */
   viewFamily: { id: number; name: string } | null;
+  /** Các gia đình mình đang tham gia. */
+  families: FamilyOption[];
   onChooseFamily: (family: { id: number; name: string } | null) => void;
+  /** Chuyển sang một gia đình khác mình đang tham gia. */
+  onSwitchFamily: (familyId: number) => void;
+  /** Vừa vào thêm (nhận lời mời) hoặc tạo thêm gia đình. */
+  onJoinedFamily: (familyId: number) => void;
+  /** Vừa rời gia đình đang chọn. */
+  onLeftFamily: () => void;
   onFamilyRenamed: (name: string) => void;
   onProfileUpdated: (user: UserProfile) => void;
   onAdmin: () => void;
@@ -368,7 +467,11 @@ function Dashboard({
   token,
   user,
   viewFamily,
+  families,
   onChooseFamily,
+  onSwitchFamily,
+  onJoinedFamily,
+  onLeftFamily,
   onFamilyRenamed,
   onProfileUpdated,
   onAdmin,
@@ -555,6 +658,34 @@ function Dashboard({
   function goTo(next: typeof page) {
     navigate(next);
     setDrawerOpen(false);
+  }
+
+  /** Lập thêm một gia đình mới (vd. "Bên nội") rồi chuyển sang đó để mời người thân vào. */
+  async function handleCreateFamily() {
+    const name = window.prompt("Tên gia đình mới (ví dụ: Bên nội, Bên ngoại, Nhà anh Hai):")?.trim();
+    if (!name) return;
+    try {
+      const created = await createFamily(token, name.slice(0, 120));
+      onJoinedFamily(created.id);
+    } catch (requestError) {
+      window.alert(requestError instanceof Error ? requestError.message : "Không tạo được gia đình.");
+    }
+  }
+
+  /** Rời gia đình đang chọn; muốn vào lại thì phải được mời lại. */
+  async function handleLeaveFamily() {
+    const others = families.filter((family) => family.id !== user.familyId);
+    const message = `Rời gia đình "${user.familyName}"?\n\n`
+      + "Bạn sẽ không xem hay ghi được dữ liệu của gia đình này nữa (dữ liệu vẫn còn cho những người ở lại). "
+      + "Muốn vào lại thì phải được mời lại."
+      + (others.length === 0 ? "\n\nĐây là gia đình duy nhất của bạn." : "");
+    if (!window.confirm(message)) return;
+    try {
+      await leaveFamily(token);
+      onLeftFamily();
+    } catch (requestError) {
+      window.alert(requestError instanceof Error ? requestError.message : "Không rời được gia đình.");
+    }
   }
 
   async function handleAddCategory() {
@@ -795,6 +926,10 @@ function Dashboard({
         onToggleCollapsed={toggleCollapsed}
         onClose={() => setDrawerOpen(false)}
         familyName={viewFamily?.name ?? user.familyName ?? ""}
+        families={viewFamily ? [] : families}
+        activeFamilyId={viewFamily ? null : user.familyId}
+        onSwitchFamily={(familyId) => { setDrawerOpen(false); onSwitchFamily(familyId); }}
+        onCreateFamily={() => { setDrawerOpen(false); void handleCreateFamily(); }}
         invitationCount={invitations.length}
         profileIncomplete={profileIncomplete}
         userName={user.name}
@@ -836,7 +971,7 @@ function Dashboard({
             >
               <option value="">Gia đình của tôi</option>
               {adminFamilies
-                .filter((family) => family.id !== user.familyId)
+                .filter((family) => !families.some((mine) => mine.id === family.id))
                 .map((family) => (
                   <option key={family.id} value={family.id}>{family.name} ({family.memberCount})</option>
                 ))}
@@ -870,7 +1005,7 @@ function Dashboard({
           <InvitationsInbox
             token={token}
             invitations={invitations}
-            onAccepted={() => window.location.reload()}
+            onAccepted={onJoinedFamily}
             onDeclined={(id) => setInvitations((current) => current.filter((entry) => entry.id !== id))}
           />
         )}
@@ -1310,7 +1445,7 @@ function Dashboard({
         {page === "loans" && <LoansPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />}
         {page === "analytics" && <AnalyticsPanel token={token} refreshKey={statsVersion} />}
         {page === "family" && (
-          <FamilyPanel token={token} section="members" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />
+          <FamilyPanel token={token} section="members" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} onLeave={handleLeaveFamily} canLeave={!viewFamily} />
         )}
         {page === "invite" && (
           <FamilyPanel token={token} section="invite" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />

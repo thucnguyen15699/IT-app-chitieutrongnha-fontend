@@ -6,8 +6,8 @@ import type { IncomingInvitation } from "./types";
 type InvitationsInboxProps = {
   token: string;
   invitations: IncomingInvitation[];
-  /** Sau khi đồng ý: tải lại hồ sơ vì người dùng đã sang gia đình mới. */
-  onAccepted: () => void;
+  /** Sau khi đồng ý: người dùng có thêm gia đình mới (vẫn giữ gia đình cũ). */
+  onAccepted: (familyId: number) => void;
   onDeclined: (id: number) => void;
 };
 
@@ -19,15 +19,13 @@ export default function InvitationsInbox({ token, invitations, onAccepted, onDec
   if (invitations.length === 0) return null;
 
   async function handleAccept(invitation: IncomingInvitation) {
-    const warning = invitation.currentFamilyName
-      ? `Tham gia gia đình "${invitation.familyName}"?\n\nBạn sẽ rời gia đình hiện tại "${invitation.currentFamilyName}" và không còn xem được dữ liệu của gia đình đó.`
-      : `Tham gia gia đình "${invitation.familyName}"?`;
+    const warning = `Tham gia gia đình "${invitation.familyName}"?\n\nBạn vẫn giữ các gia đình đang có và chuyển qua lại được ở menu bên trái.`;
     if (!window.confirm(warning)) return;
     setBusyId(invitation.id);
     setError("");
     try {
-      await acceptInvitation(token, invitation.id);
-      onAccepted();
+      const result = await acceptInvitation(token, invitation.id);
+      onAccepted(result.familyId);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Không nhận được lời mời.");
       setBusyId(null);
@@ -68,9 +66,6 @@ export default function InvitationsInbox({ token, invitations, onAccepted, onDec
                 qua {invitation.matchedBy === "EMAIL" ? "email" : "số điện thoại"}
               </span>
               {invitation.message && <q>{invitation.message}</q>}
-              {invitation.currentFamilyName && (
-                <small>Nếu đồng ý, bạn sẽ rời gia đình “{invitation.currentFamilyName}”.</small>
-              )}
             </div>
             <div className="invite-inbox-actions">
               <button

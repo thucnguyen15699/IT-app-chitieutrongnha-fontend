@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { FamilyOption } from "./types";
 
 export type Page =
   | "overview" | "planned" | "savings" | "loans" | "analytics" | "categories" | "family" | "invite" | "profile";
@@ -101,6 +102,12 @@ type SidebarProps = {
   /** Chỉ dùng trên điện thoại: đóng ngăn kéo. */
   onClose: () => void;
   familyName: string;
+  /** Các gia đình mình đang tham gia (rỗng khi admin đang chỉ xem gia đình khác). */
+  families: FamilyOption[];
+  activeFamilyId: number | null;
+  onSwitchFamily: (familyId: number) => void;
+  /** Lập thêm một gia đình mới. */
+  onCreateFamily: () => void;
   userName: string;
   isAdmin: boolean;
   pendingCount: number;
@@ -120,6 +127,10 @@ export default function Sidebar({
   onToggleCollapsed,
   onClose,
   familyName,
+  families,
+  activeFamilyId,
+  onSwitchFamily,
+  onCreateFamily,
   userName,
   isAdmin,
   pendingCount,
@@ -153,8 +164,26 @@ export default function Sidebar({
 
       <div className="sidebar-family" title={familyName}>
         <span className="family-icon">⌂</span>
-        <span className="sidebar-label"><small>Gia đình</small><strong>{familyName}</strong></span>
+        {families.length > 1 ? (
+          <label className="sidebar-label sidebar-family-switch">
+            <small>Gia đình ({families.length}) · bấm để đổi</small>
+            <select
+              aria-label="Chuyển gia đình"
+              value={activeFamilyId ?? ""}
+              onChange={(event) => onSwitchFamily(Number(event.target.value))}
+            >
+              {families.map((family) => (
+                <option key={family.id} value={family.id}>{family.name}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <span className="sidebar-label"><small>Gia đình</small><strong>{familyName}</strong></span>
+        )}
       </div>
+      {families.length > 0 && (
+        <button type="button" className="sidebar-add-family sidebar-label" onClick={onCreateFamily}>+ Lập thêm gia đình</button>
+      )}
 
       <nav className="sidebar-nav">
         {NAV_ITEMS.map((item) => (

@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   CreateTransaction,
   FamilyDetails,
+  FamilyOption,
   FamilySummary,
   GoldOverview,
   GoldPurchaseInput,
@@ -29,8 +30,9 @@ import type {
 const API_URL = import.meta.env.VITE_API_URL ?? "/api";
 
 /**
- * Gia đình quản trị viên đang chọn để xem (chỉ đọc). null = gia đình của chính mình.
- * Backend chỉ chấp nhận header này với tài khoản ADMIN.
+ * Gia đình đang chọn, gửi kèm mọi yêu cầu qua header X-Family-Id. null = gia đình mặc định.
+ * Thành viên của gia đình đó được đọc + ghi; quản trị viên xem gia đình khác thì chỉ đọc;
+ * người chưa được mời vào gia đình đó sẽ bị backend từ chối.
  */
 let viewingFamilyId: number | null = null;
 export function setViewingFamily(familyId: number | null) {
@@ -278,7 +280,17 @@ export function getMyInvitations(token: string) {
 }
 
 export function acceptInvitation(token: string, id: number) {
-  return request<{ message: string }>(`/invitations/${id}/accept`, { method: "POST", headers: authHeader(token) });
+  return request<{ message: string; familyId: number }>(`/invitations/${id}/accept`, { method: "POST", headers: authHeader(token) });
+}
+
+/** Các gia đình mình đang tham gia (gia đình nhỏ, bên nội, bên ngoại...). */
+export function getMyFamilies(token: string) {
+  return request<FamilyOption[]>("/families/mine", { headers: authHeader(token) });
+}
+
+/** Rời gia đình đang chọn. */
+export function leaveFamily(token: string) {
+  return request<{ message: string }>("/family/leave", { method: "POST", headers: authHeader(token) });
 }
 
 export function declineInvitation(token: string, id: number) {
