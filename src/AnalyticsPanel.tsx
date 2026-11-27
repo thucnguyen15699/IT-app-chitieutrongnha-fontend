@@ -118,16 +118,23 @@ export default function AnalyticsPanel({ token, refreshKey }: AnalyticsPanelProp
     };
   }, [token, refreshKey]);
 
+  // Kỳ đã tải xong gần nhất: tải lại đúng kỳ đó (tự cập nhật) thì thay số liệu êm, không nháy "Đang tải".
+  const loadedPeriodRef = useRef<string | null>(null);
   useEffect(() => {
     let active = true;
-    setLoading(true);
-    setError("");
+    const background = loadedPeriodRef.current === period;
+    if (!background) {
+      setLoading(true);
+      setError("");
+    }
     getSpendingStats(token, period)
       .then((result) => {
-        if (active) setStats(result);
+        if (!active) return;
+        setStats(result);
+        loadedPeriodRef.current = period;
       })
       .catch((requestError: unknown) => {
-        if (active) setError(requestError instanceof Error ? requestError.message : "Không tải được thống kê.");
+        if (active && !background) setError(requestError instanceof Error ? requestError.message : "Không tải được thống kê.");
       })
       .finally(() => {
         if (active) setLoading(false);

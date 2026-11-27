@@ -6,6 +6,7 @@ import {
   getSavingsGoals,
   updateSavingsGoal,
 } from "./api";
+import { useAutoRefresh } from "./autoRefresh";
 import { daysFromToday, formatAmountInput, formatCurrency, formatDate, parseAmountInput, toDateInput } from "./format";
 import type { ContributionType, SavingsGoal } from "./types";
 
@@ -46,6 +47,11 @@ export default function SavingsPanel({ token, onChanged }: SavingsPanelProps) {
       active = false;
     };
   }, [token]);
+
+  // Người khác thêm/rút tiết kiệm → tự hiện (chậm nhất ~10 giây). Lỗi mạng khi tải ngầm thì bỏ qua.
+  useAutoRefresh(() => {
+    getSavingsGoals(token).then(setGoals).catch(() => undefined);
+  });
 
   const totalSaved = goals.reduce((sum, goal) => sum + goal.savedAmount, 0);
   const isCustomPurpose = !PURPOSES.includes(purpose);

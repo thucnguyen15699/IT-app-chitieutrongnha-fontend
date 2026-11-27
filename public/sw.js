@@ -24,13 +24,19 @@ self.addEventListener("push", (event) => {
   }
   const title = data.title || "NhaMinh";
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/badge-96.png",
-      tag: data.tag || undefined,
-      data: { url: data.url || "/" },
-    }),
+    Promise.all([
+      self.registration.showNotification(title, {
+        body: data.body || "",
+        icon: "/icons/icon-192.png",
+        badge: "/icons/badge-96.png",
+        tag: data.tag || undefined,
+        data: { url: data.url || "/" },
+      }),
+      // App đang mở thì báo nó tải lại dữ liệu ngay (người khác vừa thêm khoản thu/chi).
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((windows) => windows.forEach((client) => client.postMessage({ type: "nhaminh:data-changed" }))),
+    ]),
   );
 });
 

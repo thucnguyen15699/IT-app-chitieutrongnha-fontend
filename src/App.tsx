@@ -13,6 +13,7 @@ import NotificationSettings from "./NotificationSettings";
 import { disablePush, resyncPush } from "./push";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import Sidebar, { PAGE_TITLE, useDateFromHash, usePage } from "./Sidebar";
+import { useAutoRefresh } from "./autoRefresh";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
   createSpendingTarget,
@@ -409,6 +410,7 @@ function Dashboard({
   const [transactionBusy, setTransactionBusy] = useState(false);
   const [statsVersion, setStatsVersion] = useState(0);
   const [transactionsVersion, setTransactionsVersion] = useState(0);
+  const silentRefreshRef = useRef(false);
   const [planningVersion, setPlanningVersion] = useState(0);
   const [planning, setPlanning] = useState<PlanningSummary | null>(null);
   const [plannedItems, setPlannedItems] = useState<PlannedExpense[]>([]);
@@ -477,13 +479,16 @@ function Dashboard({
 
   useEffect(() => {
     let active = true;
-    setTransactionError("");
+    // Cập nhật ngầm (xem effect tự cập nhật bên dưới): không xóa/hiện lỗi để khỏi làm phiền form đang nhập.
+    const silent = silentRefreshRef.current;
+    silentRefreshRef.current = false;
+    if (!silent) setTransactionError("");
     getMonthlyTransactions(token, monthKey)
       .then((response) => {
         if (active) setTransactions(response.transactions);
       })
       .catch((requestError: unknown) => {
-        if (active) {
+        if (active && !silent) {
           setTransactionError(requestError instanceof Error ? requestError.message : "Không tải được dữ liệu thu chi.");
         }
       });
@@ -505,6 +510,13 @@ function Dashboard({
       active = false;
     };
   }, [token, monthKey, planningVersion, statsVersion]);
+
+  // Tự cập nhật khi người khác trong nhà thêm dữ liệu (chậm nhất ~10 giây), không cần tải lại trang.
+  useAutoRefresh(() => {
+    silentRefreshRef.current = true;
+    setTransactionsVersion((version) => version + 1);
+    setStatsVersion((version) => version + 1);
+  });
 
   // Khoản sắp phải chi (chưa chi) để hiện trên lịch; tải lại khi có thay đổi kế hoạch hoặc giao dịch.
   useEffect(() => {

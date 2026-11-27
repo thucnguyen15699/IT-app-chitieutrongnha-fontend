@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { addGoldPurchase, deleteGoldPurchase, getGold, setGoldPrice, updateGoldPurchase } from "./api";
+import { useAutoRefresh } from "./autoRefresh";
 import { daysFromToday, formatAmountInput, formatCurrency, formatDate, parseAmountInput, toDateInput } from "./format";
 import type { GoldOverview, GoldPurchase } from "./types";
 
@@ -44,6 +45,11 @@ export default function GoldPanel({ token, onChanged }: GoldPanelProps) {
       .then(setGold)
       .catch((requestError: unknown) => setError(requestError instanceof Error ? requestError.message : "Không tải được dữ liệu vàng."));
   }, [token]);
+
+  // Người khác mua vàng / cập nhật giá → tự hiện (chậm nhất ~10 giây). Lỗi mạng khi tải ngầm thì bỏ qua.
+  useAutoRefresh(() => {
+    getGold(token).then(setGold).catch(() => undefined);
+  });
 
   const current = gold?.currentPrice ?? null;
   const priceAge = current ? daysFromToday(current.priceDate) : null;
