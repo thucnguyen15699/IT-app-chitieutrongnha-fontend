@@ -87,6 +87,7 @@ button { cursor: pointer; }
 .summary-symbol { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 8px; color: #3277c8; background: #edf5fd; font-size: 17px; font-weight: 700; }
 .expense-symbol { color: #d86649; background: #fff0eb; }
 .balance-summary .amount { color: #426b4c; }
+.summary-card .amount.amount-expense { color: #d93a3a; }
 .card-heading { display: flex; justify-content: space-between; align-items: center; color: #788276; font-size: 11px; }
 .balance-card .card-heading { color: #d6e0d3; }
 .round-icon { width: 25px; height: 25px; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.25); border-radius: 50%; font-size: 12px; }

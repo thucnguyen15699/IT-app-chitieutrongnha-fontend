@@ -856,7 +856,7 @@ function Dashboard({
           </article>
           <article className="summary-card">
             <div className="card-heading"><span>Tổng chi tháng này</span><span className="summary-symbol expense-symbol">-</span></div>
-            <strong className="amount">{formatCurrency(expenseTotal)}</strong>
+            <strong className="amount amount-expense">{expenseTotal > 0 ? "-" : ""}{formatCurrency(expenseTotal)}</strong>
             <p className="card-caption">Tổng các khoản chi của gia đình</p>
           </article>
           <article className="summary-card">

@@ -37,6 +37,8 @@ export function setViewingFamily(familyId: number | null) {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
+    // Không dùng bản lưu tạm (Safari/iOS, Cloudflare): luôn lấy dữ liệu mới nhất từ server.
+    cache: "no-store",
     ...options,
     headers: {
       "Content-Type": "application/json",
