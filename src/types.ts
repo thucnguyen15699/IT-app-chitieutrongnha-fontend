@@ -129,7 +129,16 @@ export type StatsGroup = {
   count: number;
   /** Phân chia theo chiều còn lại: mục → ai, hoặc ai → mục. */
   breakdown: StatsPart[];
+  /** Xem theo năm: tổng từng tháng có chi (tháng 1 → 12). */
+  months: StatsMonthPart[];
+  /** Xem theo tháng: từng khoản chi, mới nhất trước. */
+  items: StatsItem[];
 };
+
+export type StatsMonthPart = { month: number; amount: number; count: number };
+
+/** otherName: chiều còn lại (xem theo mục thì là "chi cho ai", xem theo người thì là "mục gì"). */
+export type StatsItem = { id: number; date: string; amount: number; note: string | null; otherName: string };
 
 export type MonthTotal = { month: number; income: number; expense: number };
 

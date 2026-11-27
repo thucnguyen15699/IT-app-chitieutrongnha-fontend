@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { getSpendingStats, getSpendingTargets, getTransactionCategories } from "./api";
 import type { SpendingStats, StatsGroup } from "./types";
+
+const formatDayMonth = (isoDate: string) => `${isoDate.slice(8, 10)}/${isoDate.slice(5, 7)}`;
 
 /**
  * Bảng màu phân loại (8 màu, thứ tự cố định, đã kiểm tra phân biệt được cả với người mù màu).
@@ -94,6 +96,8 @@ export default function AnalyticsPanel({ token, refreshKey }: AnalyticsPanelProp
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hovered, setHovered] = useState<string | null>(null);
+  // Mục đang mở chi tiết. Giữ nguyên khi bấm từ "năm" sang một tháng để xem tiếp các khoản của mục đó.
+  const [expanded, setExpanded] = useState<string | null>(null);
   const [hoveredMonth, setHoveredMonth] = useState<number | null>(null);
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
   const [targetOrder, setTargetOrder] = useState<string[]>([]);
@@ -245,8 +249,8 @@ export default function AnalyticsPanel({ token, refreshKey }: AnalyticsPanelProp
           <div className="analytics-split-heading">
             <h3>Cơ cấu chi tiêu {mode === "year" ? "cả năm" : "trong tháng"}</h3>
             <div className="segmented" role="group" aria-label="Phân tích theo">
-              <button type="button" className={dimension === "category" ? "active" : ""} aria-pressed={dimension === "category"} onClick={() => setDimension("category")}>Theo mục đích</button>
-              <button type="button" className={dimension === "target" ? "active" : ""} aria-pressed={dimension === "target"} onClick={() => setDimension("target")}>Theo người</button>
+              <button type="button" className={dimension === "category" ? "active" : ""} aria-pressed={dimension === "category"} onClick={() => { setDimension("category"); setExpanded(null); }}>Theo mục đích</button>
+              <button type="button" className={dimension === "target" ? "active" : ""} aria-pressed={dimension === "target"} onClick={() => { setDimension("target"); setExpanded(null); }}>Theo người</button>
             </div>
           </div>
 
@@ -288,29 +292,55 @@ export default function AnalyticsPanel({ token, refreshKey }: AnalyticsPanelProp
                 )}
               </div>
 
+              <p className="analytics-hint">Bấm vào một mục để xem {mode === "year" ? "chi từng tháng" : "chi tiết các khoản đã chi"}.</p>
               <ul className="analytics-list">
-                {groups.map((group, index) => (
-                  <li
-                    key={group.name}
-                    className={`analytics-row${hovered === group.name ? " highlighted" : ""}${hovered && hovered !== group.name ? " dimmed" : ""}`}
-                    onMouseEnter={() => setHovered(group.name)}
-                    onMouseLeave={() => setHovered(null)}
-                  >
-                    <i className="analytics-swatch" style={{ background: colorOf(group.name) }} aria-hidden="true" />
-                    <div className="analytics-row-text">
-                      <strong>{group.name}</strong>
-                      <span>
-                        {dimension === "category" ? "Chi cho: " : "Chi vào: "}
-                        {group.breakdown.slice(0, 3).map((part) => `${part.name} ${formatShare(part.amount, group.amount)}`).join(" · ")}
-                        {group.breakdown.length > 3 ? ` · +${group.breakdown.length - 3} khác` : ""}
-                      </span>
-                    </div>
-                    <div className="analytics-row-figures">
-                      <strong>{formatCurrency(group.amount)}</strong>
-                      <span>{shares[index]}% · {group.count} khoản</span>
-                    </div>
-                  </li>
-                ))}
+                {groups.map((group, index) => {
+                  const open = expanded === group.name;
+                  const toggle = () => setExpanded(open ? null : group.name);
+                  return (
+                    <Fragment key={group.name}>
+                      <li
+                        className={`analytics-row analytics-row-clickable${open ? " expanded" : ""}${hovered === group.name ? " highlighted" : ""}${hovered && hovered !== group.name ? " dimmed" : ""}`}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={open}
+                        onClick={toggle}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            toggle();
+                          }
+                        }}
+                        onMouseEnter={() => setHovered(group.name)}
+                        onMouseLeave={() => setHovered(null)}
+                      >
+                        <i className="analytics-swatch" style={{ background: colorOf(group.name) }} aria-hidden="true" />
+                        <div className="analytics-row-text">
+                          <strong>{group.name}</strong>
+                          <span>
+                            {dimension === "category" ? "Chi cho: " : "Chi vào: "}
+                            {group.breakdown.slice(0, 3).map((part) => `${part.name} ${formatShare(part.amount, group.amount)}`).join(" · ")}
+                            {group.breakdown.length > 3 ? ` · +${group.breakdown.length - 3} khác` : ""}
+                          </span>
+                        </div>
+                        <div className="analytics-row-figures">
+                          <strong>{formatCurrency(group.amount)}</strong>
+                          <span>{shares[index]}% · {group.count} khoản</span>
+                        </div>
+                        <span className="analytics-chevron" aria-hidden="true">{open ? "▴" : "▾"}</span>
+                      </li>
+                      {open && (
+                        <li className="analytics-detail">
+                          {mode === "year" ? (
+                            <GroupMonths group={group} monthsInYear={year === now.getFullYear() ? now.getMonth() + 1 : 12} onOpenMonth={openMonth} />
+                          ) : (
+                            <GroupItems group={group} dimension={dimension} />
+                          )}
+                        </li>
+                      )}
+                    </Fragment>
+                  );
+                })}
               </ul>
             </>
           )}
@@ -318,6 +348,53 @@ export default function AnalyticsPanel({ token, refreshKey }: AnalyticsPanelProp
       )}
       {!stats && loading && <p className="transaction-empty">Đang tải thống kê...</p>}
     </section>
+  );
+}
+
+/** Xem theo tháng: từng khoản chi của mục (hoặc của người), mới nhất trước. */
+function GroupItems({ group, dimension }: { group: StatsGroup; dimension: Dimension }) {
+  if (group.items.length === 0) return <p className="analytics-detail-empty">Không có khoản chi nào.</p>;
+  return (
+    <ul className="analytics-detail-list">
+      {group.items.map((item) => (
+        <li key={item.id}>
+          <span className="analytics-detail-date">{formatDayMonth(item.date)}</span>
+          <span className="analytics-detail-text">
+            <strong>{item.note || "(không ghi chú)"}</strong>
+            <small>{dimension === "category" ? `Cho: ${item.otherName}` : item.otherName}</small>
+          </span>
+          <span className="analytics-detail-amount">-{formatCurrency(item.amount)}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Xem theo năm: tổng chi của mục trong từng tháng; bấm một tháng để xem các khoản của tháng đó. */
+function GroupMonths({ group, monthsInYear, onOpenMonth }: { group: StatsGroup; monthsInYear: number; onOpenMonth: (month: number) => void }) {
+  const byMonth = new Map(group.months.map((part) => [part.month, part]));
+  const max = Math.max(...group.months.map((part) => part.amount), 0);
+  return (
+    <ul className="analytics-detail-list analytics-detail-months">
+      {Array.from({ length: monthsInYear }, (_, index) => index + 1).map((monthNumber) => {
+        const part = byMonth.get(monthNumber);
+        const amount = part?.amount ?? 0;
+        return (
+          <li key={monthNumber} className={amount === 0 ? "empty" : undefined}>
+            <button type="button" disabled={amount === 0} onClick={() => onOpenMonth(monthNumber)} aria-label={`Tháng ${monthNumber}: ${formatCurrency(amount)}${part ? `, ${part.count} khoản. Bấm để xem chi tiết` : ""}`}>
+              <span className="analytics-detail-date">Tháng {monthNumber}</span>
+              <span className="analytics-detail-bar" aria-hidden="true">
+                <i style={{ width: max > 0 ? `${(amount / max) * 100}%` : 0 }} />
+              </span>
+              <span className="analytics-detail-amount">
+                {amount > 0 ? `-${formatCurrency(amount)}` : formatCurrency(0)}
+                {part && <small>{part.count} khoản ›</small>}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

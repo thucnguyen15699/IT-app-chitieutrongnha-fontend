@@ -277,6 +277,33 @@ button { cursor: pointer; }
 .analytics-row-figures { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; white-space: nowrap; }
 .analytics-row-figures strong { color: #344436; font-size: 12px; }
 .analytics-row-figures span { color: #858f83; font-size: 10px; }
+/* Bấm vào một mục để mở chi tiết */
+.analytics-hint { margin: 12px 0 0; color: #969e94; font-size: 10px; }
+.analytics-row-clickable { cursor: pointer; }
+.analytics-row-clickable:focus-visible { outline: 2px solid #8fb596; outline-offset: -2px; }
+.analytics-row.expanded { background: #f5f8f2; border-bottom-color: transparent; border-radius: 6px 6px 0 0; }
+.analytics-chevron { flex: 0 0 auto; width: 14px; color: #969e94; font-size: 11px; text-align: center; }
+.analytics-detail { padding: 2px 6px 10px 27px; border-bottom: 1px solid #edf0e9; background: #f5f8f2; border-radius: 0 0 6px 6px; }
+.analytics-detail-empty { margin: 6px 0; color: #858f83; font-size: 11px; }
+.analytics-detail-list { margin: 0; padding: 0; list-style: none; }
+.analytics-detail-list > li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px dashed #e3e8de; }
+.analytics-detail-list > li:first-child { border-top: 0; }
+.analytics-detail-date { flex: 0 0 auto; min-width: 38px; color: #6f7a6d; font-size: 11px; font-variant-numeric: tabular-nums; }
+.analytics-detail-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.analytics-detail-text strong { overflow: hidden; color: #435244; font-size: 12px; font-weight: 550; text-overflow: ellipsis; white-space: nowrap; }
+.analytics-detail-text small { color: #969e94; font-size: 10px; }
+.analytics-detail-amount { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; color: #d93a3a; font-size: 12px; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.analytics-detail-amount small { color: #858f83; font-size: 10px; font-weight: 400; }
+.analytics-detail-months > li { padding: 0; }
+.analytics-detail-months button { width: 100%; display: flex; align-items: center; gap: 10px; padding: 8px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.analytics-detail-months button:disabled { cursor: default; }
+.analytics-detail-months li.empty .analytics-detail-date,
+.analytics-detail-months li.empty .analytics-detail-amount { color: #b4bab1; font-weight: 400; }
+.analytics-detail-date + .analytics-detail-bar { margin-left: 4px; }
+.analytics-detail-bar { flex: 1 1 auto; height: 6px; overflow: hidden; border-radius: 3px; background: #e6ebe2; }
+.analytics-detail-bar i { display: block; height: 100%; border-radius: 3px; background: #e08a7a; }
+.analytics-detail-months button:not(:disabled):hover .analytics-detail-bar i { background: #d93a3a; }
+.analytics-detail-months .analytics-detail-amount { min-width: 104px; margin-left: 0; }
 
 /* Biểu đồ cột 12 tháng */
 .monthly-chart { margin-top: 22px; }
