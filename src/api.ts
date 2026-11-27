@@ -150,6 +150,13 @@ export function updateTransaction(token: string, id: number, transaction: Create
   });
 }
 
+export function deleteTransaction(token: string, id: number) {
+  return request<void>(`/transactions/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 const authHeader = (token: string) => ({ Authorization: `Bearer ${token}` });
 
 // ----- Tổng hợp kế hoạch (khoản sắp chi + tiết kiệm) -----

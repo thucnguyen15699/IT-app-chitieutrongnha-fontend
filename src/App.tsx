@@ -18,6 +18,7 @@ import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
   createSpendingTarget,
   createTransaction,
+  deleteTransaction,
   createTransactionCategory,
   getCurrentUser,
   getMonthlyTransactions,
@@ -671,6 +672,34 @@ function Dashboard({
     document.getElementById("transaction-amount")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
+  /** Xóa giao dịch nhập sai: hỏi lại (OK / Cancel) kèm ngày, số tiền, ghi chú trước khi xóa. */
+  async function handleDelete(transaction: FamilyTransaction) {
+    const isIncome = transaction.type === "INCOME";
+    const [year, monthNumber, day] = transaction.occurredOn.split("-");
+    const message = [
+      `Bạn có muốn xóa giao dịch ${isIncome ? "thu" : "chi"} ngày ${day}/${monthNumber}/${year} không?`,
+      "",
+      `Số tiền: ${isIncome ? "+" : "-"}${formatCurrency(transaction.amount)}`,
+      `Mục: ${transaction.categoryName}${transaction.targetName ? ` · ${transaction.targetName}` : ""}`,
+      `Ghi chú: ${transaction.note || "(không có)"}`,
+      "",
+      "Bấm OK để xóa, Cancel để giữ lại.",
+    ].join("\n");
+    if (!window.confirm(message)) return;
+
+    setTransactionError("");
+    setTransactionNotice("");
+    try {
+      await deleteTransaction(token, transaction.id);
+      setTransactions((current) => current.filter((item) => item.id !== transaction.id));
+      if (editingTransactionId === transaction.id) cancelEditing();
+      setStatsVersion((version) => version + 1);
+      setTransactionNotice(`Đã xóa khoản ${isIncome ? "thu" : "chi"} ${formatCurrency(transaction.amount)}.`);
+    } catch (requestError) {
+      setTransactionError(requestError instanceof Error ? requestError.message : "Không xóa được giao dịch.");
+    }
+  }
+
   function cancelEditing() {
     setEditingTransactionId(null);
     setAmount("");
@@ -1104,12 +1133,20 @@ function Dashboard({
                   <strong className={`transaction-amount ${transaction.type === "INCOME" ? "income-total" : "expense-total"}`}>
                     {transaction.type === "INCOME" ? "+" : "-"}{formatCurrency(transaction.amount)}
                   </strong>
-                  <button
-                    className="transaction-edit-button"
-                    type="button"
-                    aria-label={`Sửa giao dịch ${transaction.categoryName}`}
-                    onClick={() => startEditing(transaction)}
-                  >Sửa</button>
+                  <div className="transaction-actions">
+                    <button
+                      className="transaction-edit-button"
+                      type="button"
+                      aria-label={`Sửa giao dịch ${transaction.categoryName}`}
+                      onClick={() => startEditing(transaction)}
+                    >Sửa</button>
+                    <button
+                      className="transaction-edit-button transaction-delete-button"
+                      type="button"
+                      aria-label={`Xóa giao dịch ${transaction.categoryName}`}
+                      onClick={() => void handleDelete(transaction)}
+                    >Xóa</button>
+                  </div>
                 </article>
               ))}
             </div>
