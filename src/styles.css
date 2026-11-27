@@ -76,7 +76,24 @@ button { cursor: pointer; }
 .family-pill small { margin-bottom: 3px; color: #a1a79d; font-size: 9px; }
 .family-pill strong { color: #37483a; font-size: 12px; }
 .pill-dot { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: #81a17a; }
-.summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+.summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
+.summary-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.summary-clickable:hover, .summary-clickable:focus-visible { border-color: #b9cbb6; box-shadow: 0 4px 14px rgba(43, 61, 43, .08); outline: none; }
+.summary-active { border-color: #709274; box-shadow: 0 0 0 2px rgba(112, 146, 116, .25); }
+.summary-detail { margin-top: 16px; }
+.summary-detail .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.wallet-formula { margin: 0 0 10px; padding: 0; list-style: none; }
+.wallet-formula li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 2px; border-bottom: 1px dashed #e4e8df; color: #4c5a4d; font-size: 14px; }
+.wallet-formula li b { white-space: nowrap; }
+.wallet-formula-total { border-bottom: 0 !important; border-top: 2px solid #426b4c; font-weight: 700; color: #2f4532 !important; font-size: 16px !important; }
+.wallet-formula-total b { color: #426b4c; }
+.wallet-formula-total.wallet-negative b { color: #c2412d; }
+.debt-summary:hover, .debt-summary:focus-visible { border-color: #e7b9aa; }
+.debt-summary.has-debt .amount { color: #c2412d; }
+.loan-paid-off { opacity: .7; }
+.loan-repayment-delete { margin-left: 6px; padding: 0 4px; border: 0; color: #a1a79d; background: transparent; font-size: 14px; line-height: 1; cursor: pointer; }
+.loan-repayment-delete:hover { color: #c2412d; }
+.loan-totals { margin-bottom: 16px; }
 .planned-symbol { color: #b7791f; background: #fdf4e3; font-size: 14px; }
 .wallet-negative .amount { color: #c2412d; }
 .wallet-negative .card-caption { color: #c2412d; font-weight: 600; }
@@ -349,6 +366,7 @@ button { cursor: pointer; }
 
 @media (max-width: 1100px) {
   .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .debt-summary { grid-column: 1 / -1; }
   .planning-layout { grid-template-columns: 1fr; }
 }
 

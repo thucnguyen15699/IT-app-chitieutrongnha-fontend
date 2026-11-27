@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import AdminPanel from "./AdminPanel";
 import AnalyticsPanel from "./AnalyticsPanel";
 import CategoriesPanel from "./CategoriesPanel";
 import PlannedExpensesPanel from "./PlannedExpensesPanel";
 import SavingsPanel from "./SavingsPanel";
 import GoldPanel from "./GoldPanel";
+import LoansPanel from "./LoansPanel";
 import FamilyPanel from "./FamilyPanel";
 import InvitationsInbox from "./InvitationsInbox";
 import NoFamilyScreen from "./NoFamilyScreen";
@@ -14,7 +15,7 @@ import { disablePush, resyncPush } from "./push";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import Sidebar, { PAGE_TITLE, useDateFromHash, usePage } from "./Sidebar";
 import { useAutoRefresh } from "./autoRefresh";
-import { formatAmountInput, formatCurrency, toDateInput } from "./format";
+import { formatAmountInput, formatCurrency, formatDate, toDateInput } from "./format";
 import {
   createSpendingTarget,
   createTransaction,
@@ -420,6 +421,8 @@ function Dashboard({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [page, navigate] = usePage();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  /** Ô tổng đang được bấm mở chi tiết (danh sách thu, danh sách chi, hoặc cách tính tiền trong ví). */
+  const [summaryDetail, setSummaryDetail] = useState<"income" | "expense" | "wallet" | null>(null);
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem("nhaminh_sidebar_collapsed") === "1";
@@ -577,11 +580,28 @@ function Dashboard({
   }
 
   const pendingTotal = planning?.pendingTotal ?? 0;
-  const savingsNet = planning?.savingsNetInMonth ?? 0;
-  const goldSpent = planning?.goldSpentInMonth ?? 0;
-  // Tiền gửi tiết kiệm và tiền mua vàng trong tháng đều đã rời khỏi ví.
-  const putAside = savingsNet + goldSpent;
-  const walletRemaining = incomeTotal - expenseTotal - pendingTotal - putAside;
+  const totalDebt = planning?.totalDebt ?? 0;
+  // Tiền trong ví là số tiền thật đang có (cộng dồn mọi tháng đến hôm nay, đã trừ khoản sắp chi):
+  // xem tháng nào cũng là một con số, không đổi theo tháng đang xem.
+  const wallet = planning?.wallet ?? null;
+  const walletRemaining = wallet?.balance ?? 0;
+  const monthIncomes = transactions.filter((transaction) => transaction.type === "INCOME");
+  const monthExpenses = transactions.filter((transaction) => transaction.type === "EXPENSE");
+  const monthLabel = new Intl.DateTimeFormat("vi-VN", { month: "long", year: "numeric" }).format(month);
+  const isCurrentMonth = monthKey === currentMonthKey;
+
+  /** Bấm vào ô tổng: mở/đóng phần chi tiết bên dưới. */
+  function toggleDetail(kind: "income" | "expense" | "wallet") {
+    setSummaryDetail((current) => (current === kind ? null : kind));
+  }
+  const cardButtonProps = (onActivate: () => void) => ({
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: onActivate,
+    onKeyDown: (event: ReactKeyboardEvent) => {
+      if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onActivate(); }
+    },
+  });
 
   useEffect(() => {
     let active = true;
@@ -878,15 +898,23 @@ function Dashboard({
         </section>
 
         <section className="summary-grid" aria-label="Tổng quan thu chi tháng">
-          <article className="summary-card income-summary">
-            <div className="card-heading"><span>Tổng thu tháng này</span><span className="summary-symbol">+</span></div>
+          <article
+            className={`summary-card income-summary summary-clickable${summaryDetail === "income" ? " summary-active" : ""}`}
+            aria-expanded={summaryDetail === "income"}
+            {...cardButtonProps(() => toggleDetail("income"))}
+          >
+            <div className="card-heading"><span>Tổng thu {isCurrentMonth ? "tháng này" : monthLabel}</span><span className="summary-symbol">+</span></div>
             <strong className="amount">{formatCurrency(incomeTotal)}</strong>
-            <p className="card-caption">Tổng các nguồn thu của gia đình</p>
+            <p className="card-caption">{monthIncomes.length} khoản thu · bấm để xem danh sách</p>
           </article>
-          <article className="summary-card">
-            <div className="card-heading"><span>Tổng chi tháng này</span><span className="summary-symbol expense-symbol">-</span></div>
+          <article
+            className={`summary-card summary-clickable${summaryDetail === "expense" ? " summary-active" : ""}`}
+            aria-expanded={summaryDetail === "expense"}
+            {...cardButtonProps(() => toggleDetail("expense"))}
+          >
+            <div className="card-heading"><span>Tổng chi {isCurrentMonth ? "tháng này" : monthLabel}</span><span className="summary-symbol expense-symbol">-</span></div>
             <strong className="amount amount-expense">{expenseTotal > 0 ? "-" : ""}{formatCurrency(expenseTotal)}</strong>
-            <p className="card-caption">Tổng các khoản chi của gia đình</p>
+            <p className="card-caption">{monthExpenses.length} khoản chi · bấm để xem danh sách</p>
           </article>
           <article className="summary-card">
             <div className="card-heading"><span>Khoản sắp phải chi</span><span className="summary-symbol planned-symbol">◔</span></div>
@@ -895,18 +923,107 @@ function Dashboard({
               {planning?.pendingCount ? `${planning.pendingCount} khoản đã biết trước, chưa chi` : "Chưa có khoản nào sắp chi"}
             </p>
           </article>
-          <article className={`summary-card balance-summary${walletRemaining < 0 ? " wallet-negative" : ""}`}>
+          <article
+            className={`summary-card balance-summary summary-clickable${walletRemaining < 0 ? " wallet-negative" : ""}${summaryDetail === "wallet" ? " summary-active" : ""}`}
+            aria-expanded={summaryDetail === "wallet"}
+            {...cardButtonProps(() => toggleDetail("wallet"))}
+          >
             <div className="card-heading"><span>Tiền trong ví còn lại</span><span className="icon-tile">◷</span></div>
             <strong className="amount">{formatCurrency(walletRemaining)}</strong>
             <p className="card-caption">
               {walletRemaining < 0
                 ? "Không đủ tiền cho các khoản sắp chi!"
-                : putAside !== 0
-                  ? `Thu − chi − sắp chi − tiết kiệm & vàng (${formatCurrency(putAside)})`
-                  : "Thu − đã chi − khoản sắp phải chi"}
+                : "Số tiền đang có, đã trừ hết các khoản chi · bấm để xem cách tính"}
             </p>
           </article>
+          <article
+            className={`summary-card debt-summary summary-clickable${totalDebt > 0 ? " has-debt" : ""}`}
+            {...cardButtonProps(() => goTo("loans"))}
+          >
+            <div className="card-heading"><span>Tổng nợ</span><span className="summary-symbol expense-symbol">⇄</span></div>
+            <strong className="amount">{formatCurrency(totalDebt)}</strong>
+            <p className="card-caption">{totalDebt > 0 ? "Tiền còn phải trả các khoản vay · xem chi tiết" : "Không có khoản nợ nào"}</p>
+          </article>
         </section>
+
+        {(summaryDetail === "income" || summaryDetail === "expense") && (() => {
+          const isIncome = summaryDetail === "income";
+          const list = [...(isIncome ? monthIncomes : monthExpenses)].sort((a, b) => b.occurredOn.localeCompare(a.occurredOn));
+          return (
+            <section className="content-card summary-detail" aria-label={isIncome ? "Danh sách khoản thu" : "Danh sách khoản chi"}>
+              <div className="section-heading">
+                <div>
+                  <span className="eyebrow">{monthLabel.toUpperCase()}</span>
+                  <h2>{isIncome ? "Các khoản thu" : "Các khoản chi"} · {formatCurrency(isIncome ? incomeTotal : expenseTotal)}</h2>
+                </div>
+                <button type="button" className="button button-install" onClick={() => setSummaryDetail(null)}>Đóng</button>
+              </div>
+              {list.length === 0 ? (
+                <p className="transaction-empty">{isIncome ? "Chưa có khoản thu nào trong tháng này." : "Chưa có khoản chi nào trong tháng này."}</p>
+              ) : (
+                <div className="transaction-list">
+                  {list.map((transaction) => (
+                    <article className="transaction-row summary-detail-row" key={transaction.id}>
+                      <div className={`transaction-type-mark ${isIncome ? "income-mark" : "expense-mark"}`}>{isIncome ? "+" : "-"}</div>
+                      <div className="transaction-description">
+                        <strong>
+                          {transaction.categoryName}
+                          {transaction.targetName && <em className="transaction-target-tag">{transaction.targetName}</em>}
+                        </strong>
+                        <span>{formatDate(transaction.occurredOn)}{transaction.note ? ` · ${transaction.note}` : ""}</span>
+                      </div>
+                      <strong className={`transaction-amount ${isIncome ? "income-total" : "expense-total"}`}>
+                        {isIncome ? "+" : "-"}{formatCurrency(transaction.amount)}
+                      </strong>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          );
+        })()}
+
+        {summaryDetail === "wallet" && (
+          <section className="content-card summary-detail" aria-label="Cách tính tiền trong ví">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">TÍNH ĐẾN HÔM NAY · CỘNG DỒN MỌI THÁNG</span>
+                <h2>Tiền trong ví còn lại được tính thế nào?</h2>
+              </div>
+              <button type="button" className="button button-install" onClick={() => setSummaryDetail(null)}>Đóng</button>
+            </div>
+            {wallet ? (
+              <>
+                <ul className="wallet-formula">
+                  <li><span>Tổng tiền đã thu</span><b className="income-total">+{formatCurrency(wallet.income)}</b></li>
+                  <li><span>Tổng tiền đã chi</span><b className="expense-total">−{formatCurrency(wallet.expense)}</b></li>
+                  {wallet.borrowed !== 0 && <li><span>Tiền đã vay</span><b className="income-total">+{formatCurrency(wallet.borrowed)}</b></li>}
+                  {wallet.repaid !== 0 && <li><span>Tiền đã trả nợ</span><b className="expense-total">−{formatCurrency(wallet.repaid)}</b></li>}
+                  {wallet.savingsNet !== 0 && (
+                    <li>
+                      <span>{wallet.savingsNet > 0 ? "Gửi vào tiết kiệm (đã trừ tiền rút)" : "Rút từ tiết kiệm (nhiều hơn tiền gửi)"}</span>
+                      <b className={wallet.savingsNet > 0 ? "expense-total" : "income-total"}>
+                        {wallet.savingsNet > 0 ? "−" : "+"}{formatCurrency(Math.abs(wallet.savingsNet))}
+                      </b>
+                    </li>
+                  )}
+                  {wallet.gold !== 0 && <li><span>Tiền mua vàng</span><b className="expense-total">−{formatCurrency(wallet.gold)}</b></li>}
+                  {wallet.pending !== 0 && (
+                    <li><span>Khoản sắp phải chi (giữ lại để chi)</span><b className="expense-total">−{formatCurrency(wallet.pending)}</b></li>
+                  )}
+                  <li className={`wallet-formula-total${wallet.balance < 0 ? " wallet-negative" : ""}`}>
+                    <span>= Tiền trong ví còn lại</span><b>{formatCurrency(wallet.balance)}</b>
+                  </li>
+                </ul>
+                <p className="field-hint">
+                  Con số này là tiền thật đang có trong ví, cộng dồn từ mọi tháng đến hôm nay, nên chuyển sang tháng khác vẫn giữ nguyên.
+                </p>
+              </>
+            ) : (
+              <p className="transaction-empty">Đang tải...</p>
+            )}
+          </section>
+        )}
 
         <section className="transaction-layout">
           <article className="content-card calendar-card">
@@ -1190,6 +1307,7 @@ function Dashboard({
             <GoldPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />
           </>
         )}
+        {page === "loans" && <LoansPanel token={token} onChanged={() => setPlanningVersion((version) => version + 1)} />}
         {page === "analytics" && <AnalyticsPanel token={token} refreshKey={statsVersion} />}
         {page === "family" && (
           <FamilyPanel token={token} section="members" onRenamed={onFamilyRenamed} onGoInvite={() => goTo("invite")} />

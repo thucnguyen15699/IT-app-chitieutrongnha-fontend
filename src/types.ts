@@ -208,6 +208,66 @@ export type PlanningSummary = {
   totalSaved: number;
   /** Tiền mua vàng trong tháng (đã rời khỏi ví). */
   goldSpentInMonth: number;
+  /** Tiền vay vào trừ tiền trả nợ trong tháng (dương = ví có thêm tiền). */
+  loanNetInMonth: number;
+  /** Tổng tiền còn nợ của mọi khoản vay. */
+  totalDebt: number;
+  /** Tiền trong ví hiện tại (cộng dồn mọi tháng đến hôm nay), không phụ thuộc tháng đang xem. */
+  wallet: WalletBreakdown;
+};
+
+/** balance = income − expense − pending − savingsNet − gold + borrowed − repaid. */
+export type WalletBreakdown = {
+  income: number;
+  expense: number;
+  pending: number;
+  savingsNet: number;
+  gold: number;
+  borrowed: number;
+  repaid: number;
+  balance: number;
+};
+
+// ----- Khoản vay -----
+
+export type LenderType = "FRIEND" | "PARENT" | "SIBLING" | "RELATIVE" | "COLLEAGUE" | "BANK" | "OTHER";
+export type RepaymentMode = "INSTALLMENT" | "LUMP_SUM";
+
+export type LoanRepayment = { id: number; amount: number; paidOn: string; note: string | null };
+
+export type Loan = {
+  id: number;
+  lenderType: LenderType;
+  lenderName: string;
+  amount: number;
+  borrowedOn: string;
+  repaymentMode: RepaymentMode;
+  installmentAmount: number | null;
+  dueOn: string | null;
+  /** Vay để làm gì. */
+  note: string | null;
+  repaid: number;
+  remaining: number;
+  paidOff: boolean;
+  repayments: LoanRepayment[];
+};
+
+export type LoanInput = {
+  lenderType: LenderType;
+  lenderName: string;
+  amount: number;
+  borrowedOn: string;
+  repaymentMode: RepaymentMode;
+  installmentAmount: number | null;
+  dueOn: string | null;
+  note: string;
+};
+
+export type LoanOverview = {
+  loans: Loan[];
+  totalBorrowed: number;
+  totalRepaid: number;
+  totalDebt: number;
 };
 
 export type AuthMode = "login" | "register";

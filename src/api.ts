@@ -7,6 +7,8 @@ import type {
   FamilySummary,
   GoldOverview,
   GoldPurchaseInput,
+  LoanInput,
+  LoanOverview,
   FamilyTransaction,
   IncomingInvitation,
   InviteResult,
@@ -340,6 +342,32 @@ export function checkAvailability(params: { username?: string; email?: string; p
   return request<AvailabilityResult>(`/auth/check-availability?${query.toString()}`, {
     headers: token ? authHeader(token) : {},
   });
+}
+
+// ----- Khoản vay -----
+
+export function getLoans(token: string) {
+  return request<LoanOverview>("/loans", { headers: authHeader(token) });
+}
+
+export function createLoan(token: string, input: LoanInput) {
+  return request<LoanOverview>("/loans", { method: "POST", headers: authHeader(token), body: JSON.stringify(input) });
+}
+
+export function updateLoan(token: string, id: number, input: LoanInput) {
+  return request<LoanOverview>(`/loans/${id}`, { method: "PUT", headers: authHeader(token), body: JSON.stringify(input) });
+}
+
+export function deleteLoan(token: string, id: number) {
+  return request<LoanOverview>(`/loans/${id}`, { method: "DELETE", headers: authHeader(token) });
+}
+
+export function repayLoan(token: string, id: number, input: { amount: number; paidOn: string; note: string }) {
+  return request<LoanOverview>(`/loans/${id}/repayments`, { method: "POST", headers: authHeader(token), body: JSON.stringify(input) });
+}
+
+export function deleteLoanRepayment(token: string, loanId: number, repaymentId: number) {
+  return request<LoanOverview>(`/loans/${loanId}/repayments/${repaymentId}`, { method: "DELETE", headers: authHeader(token) });
 }
 
 // ----- Vàng -----

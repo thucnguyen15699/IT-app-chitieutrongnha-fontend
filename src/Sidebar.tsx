@@ -1,13 +1,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 export type Page =
-  | "overview" | "planned" | "savings" | "analytics" | "categories" | "family" | "invite" | "profile";
+  | "overview" | "planned" | "savings" | "loans" | "analytics" | "categories" | "family" | "invite" | "profile";
 
 /** Mỗi trang có một địa chỉ #/... để nút Back trên điện thoại hoạt động đúng. */
 const PAGE_HASH: Record<Page, string> = {
   overview: "#/tong-quan",
   planned: "#/sap-chi",
   savings: "#/tiet-kiem",
+  loans: "#/khoan-vay",
   analytics: "#/phan-tich",
   categories: "#/danh-muc",
   family: "#/gia-dinh",
@@ -19,6 +20,7 @@ export const PAGE_TITLE: Record<Page, string> = {
   overview: "Tổng quan",
   planned: "Khoản sắp phải chi",
   savings: "Tiết kiệm",
+  loans: "Khoản vay",
   analytics: "Phân tích",
   categories: "Danh mục",
   family: "Gia đình",
@@ -78,6 +80,7 @@ const icons: Record<Page | "admin" | "logout" | "install", ReactNode> = {
   overview: <Icon><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></Icon>,
   planned: <Icon><rect x="3" y="4.5" width="18" height="16" rx="2.5" /><path d="M3 9.5h18M8 2.5v4M16 2.5v4" /><path d="M8 14h3" /></Icon>,
   savings: <Icon><path d="M5 11a7 6 0 0 1 13.5-2H20v4l-2 1v3h-3v-2H9v2H6v-3.5A6 6 0 0 1 5 11Z" /><path d="M10 7.5h3" /></Icon>,
+  loans: <Icon><path d="M3 12.5h3.5l3 2h4a1.5 1.5 0 0 1 0 3H10" /><path d="M13.5 17.5 19 15a1.6 1.6 0 0 1 1.8 2.5L15 21H3" /><circle cx="15.5" cy="6.5" r="3.5" /></Icon>,
   analytics: <Icon><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></Icon>,
   family: <Icon><circle cx="9" cy="8" r="3.2" /><circle cx="17" cy="9.5" r="2.4" /><path d="M3.5 19.5c.6-3.2 2.9-5 5.5-5s4.9 1.8 5.5 5" /><path d="M15 14.6c2.6-.4 4.9 1.1 5.5 4.4" /></Icon>,
   invite: <Icon><circle cx="9" cy="8" r="3.4" /><path d="M2.5 20c.7-3.6 3.3-5.6 6.5-5.6 1.6 0 3 .5 4.1 1.4" /><path d="M18.5 13v7M15 16.5h7" /></Icon>,
@@ -88,7 +91,7 @@ const icons: Record<Page | "admin" | "logout" | "install", ReactNode> = {
   logout: <Icon><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" /><path d="M10 16l-4-4 4-4M6 12h10" /></Icon>,
 };
 
-const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "analytics", "family", "invite", "categories", "profile"];
+const NAV_ITEMS: Page[] = ["overview", "planned", "savings", "loans", "analytics", "family", "invite", "categories", "profile"];
 
 type SidebarProps = {
   page: Page;
