@@ -291,6 +291,24 @@ export function updateProfile(token: string, profile: { name: string; email: str
   });
 }
 
+/** Tự đổi mật khẩu: cần mật khẩu hiện tại. */
+export function changePassword(token: string, currentPassword: string, newPassword: string) {
+  return request<{ message: string }>("/profile/password", {
+    method: "POST",
+    headers: authHeader(token),
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+/** Chỉ quản trị viên: đặt mật khẩu mới cho tài khoản khác. */
+export function resetUserPassword(token: string, userId: number, newPassword: string) {
+  return request<{ message: string }>(`/admin/users/${userId}/password`, {
+    method: "PUT",
+    headers: authHeader(token),
+    body: JSON.stringify({ newPassword }),
+  });
+}
+
 export function resendEmailVerification(token: string) {
   return request<{ message: string }>("/profile/resend-verification", { method: "POST", headers: authHeader(token) });
 }

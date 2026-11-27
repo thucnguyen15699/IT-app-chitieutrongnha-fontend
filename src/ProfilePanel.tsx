@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { resendEmailVerification, updateProfile } from "./api";
+import { changePassword, resendEmailVerification, updateProfile } from "./api";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import type { UserProfile } from "./types";
 
@@ -67,6 +67,7 @@ export default function ProfilePanel({ token, user, onUpdated }: ProfilePanelPro
   }
 
   return (
+    <>
     <section className="content-card profile-card" aria-label="Thông tin cá nhân">
       <div className="profile-head">
         <span className="profile-avatar" aria-hidden="true">{user.name.charAt(0).toUpperCase()}</span>
@@ -146,6 +147,96 @@ export default function ProfilePanel({ token, user, onUpdated }: ProfilePanelPro
               Khôi phục
             </button>
           )}
+        </div>
+      </form>
+    </section>
+    <ChangePasswordCard token={token} />
+    </>
+  );
+}
+
+/** Đổi mật khẩu của chính mình: nhập mật khẩu hiện tại + mật khẩu mới (2 lần). */
+function ChangePasswordCard({ token }: { token: string }) {
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const tooShort = newPassword.length > 0 && newPassword.length < 8;
+  const mismatch = confirmPassword.length > 0 && confirmPassword !== newPassword;
+  const ready = currentPassword.length > 0 && newPassword.length >= 8 && confirmPassword === newPassword;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ready) return;
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await changePassword(token, currentPassword, newPassword);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setNotice(result.message);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Không đổi được mật khẩu.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="content-card profile-card" aria-label="Đổi mật khẩu">
+      <span className="eyebrow">BẢO MẬT</span>
+      <h2>Đổi mật khẩu</h2>
+      <form className="transaction-form" onSubmit={handleSubmit}>
+        <label htmlFor="profile-current-password">Mật khẩu hiện tại</label>
+        <input
+          id="profile-current-password"
+          type="password"
+          value={currentPassword}
+          required
+          maxLength={72}
+          autoComplete="current-password"
+          onChange={(event) => setCurrentPassword(event.target.value)}
+        />
+
+        <label htmlFor="profile-new-password">Mật khẩu mới</label>
+        <input
+          id="profile-new-password"
+          type="password"
+          value={newPassword}
+          required
+          minLength={8}
+          maxLength={72}
+          autoComplete="new-password"
+          placeholder="Ít nhất 8 ký tự"
+          aria-invalid={tooShort}
+          onChange={(event) => setNewPassword(event.target.value)}
+        />
+        {tooShort && <p className="field-hint">Mật khẩu cần có từ 8 ký tự.</p>}
+
+        <label htmlFor="profile-confirm-password">Nhập lại mật khẩu mới</label>
+        <input
+          id="profile-confirm-password"
+          type="password"
+          value={confirmPassword}
+          required
+          maxLength={72}
+          autoComplete="new-password"
+          aria-invalid={mismatch}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+        />
+        {mismatch && <p className="field-hint">Mật khẩu nhập lại chưa khớp.</p>}
+
+        {error && <div className="form-error" role="alert">{error}</div>}
+        {notice && <div className="form-success" role="status">{notice}</div>}
+        <div className="transaction-form-actions">
+          <button className="button button-primary transaction-submit" type="submit" disabled={busy || !ready}>
+            {busy ? "Đang đổi..." : "Đổi mật khẩu"}
+          </button>
         </div>
       </form>
     </section>

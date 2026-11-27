@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { createAdminUser, getAdminFamilies, getAdminUsers } from "./api";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
+import { createAdminUser, getAdminFamilies, getAdminUsers, resetUserPassword } from "./api";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
 import { formatDate } from "./format";
 import type { AdminUser, FamilySummary } from "./types";
@@ -29,6 +29,35 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
   const emailCheck = useFieldCheck("email", email);
   const phoneCheck = useFieldCheck("phoneNumber", phone);
   const blocked = hasError(usernameCheck, emailCheck, phoneCheck);
+  // Đặt lại mật khẩu cho một tài khoản (mở form ngay dưới dòng của tài khoản đó).
+  const [resetUserId, setResetUserId] = useState<number | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetNotice, setResetNotice] = useState("");
+
+  function openReset(userId: number | null) {
+    setResetUserId(userId);
+    setResetPassword("");
+    setResetError("");
+    setResetNotice("");
+  }
+
+  async function handleResetPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (resetUserId === null) return;
+    setResetBusy(true);
+    setResetError("");
+    try {
+      const result = await resetUserPassword(token, resetUserId, resetPassword);
+      openReset(null);
+      setResetNotice(result.message);
+    } catch (requestError) {
+      setResetError(requestError instanceof Error ? requestError.message : "Không đặt lại được mật khẩu.");
+    } finally {
+      setResetBusy(false);
+    }
+  }
 
   async function refresh() {
     setError("");
@@ -183,22 +212,60 @@ export default function AdminPanel({ token, onBack, onSignOut, onViewFamily }: A
           <div className="section-heading">
             <h2>Tài khoản hiện có ({users.length})</h2>
           </div>
+          {resetNotice && <div className="form-success" role="status">{resetNotice}</div>}
           {loading ? <p>Đang tải...</p> : (
             <div className="admin-table-wrap">
               <table className="admin-table">
                 <thead>
-                  <tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Gia đình</th><th>Email</th><th>Điện thoại</th><th>Vai trò</th></tr>
+                  <tr><th>Tên đăng nhập</th><th>Họ tên</th><th>Gia đình</th><th>Email</th><th>Điện thoại</th><th>Vai trò</th><th /></tr>
                 </thead>
                 <tbody>
                   {users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.username}</td>
-                      <td>{user.name}</td>
-                      <td>{user.familyName ?? <em>Chưa có</em>}</td>
-                      <td>{user.email ?? "—"}</td>
-                      <td>{user.phoneNumber ?? "—"}</td>
-                      <td>{user.roles.join(", ")}</td>
-                    </tr>
+                    <Fragment key={user.id}>
+                      <tr>
+                        <td>{user.username}</td>
+                        <td>{user.name}</td>
+                        <td>{user.familyName ?? <em>Chưa có</em>}</td>
+                        <td>{user.email ?? "—"}</td>
+                        <td>{user.phoneNumber ?? "—"}</td>
+                        <td>{user.roles.join(", ")}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="transaction-edit-button"
+                            aria-expanded={resetUserId === user.id}
+                            onClick={() => openReset(resetUserId === user.id ? null : user.id)}
+                          >
+                            {resetUserId === user.id ? "Đóng" : "Đổi mật khẩu"}
+                          </button>
+                        </td>
+                      </tr>
+                      {resetUserId === user.id && (
+                        <tr>
+                          <td colSpan={7}>
+                            <form className="admin-form" onSubmit={handleResetPassword}>
+                              <label htmlFor={`reset-password-${user.id}`}>Mật khẩu mới cho {user.username}</label>
+                              <input
+                                id={`reset-password-${user.id}`}
+                                type="password"
+                                value={resetPassword}
+                                required
+                                minLength={8}
+                                maxLength={72}
+                                autoComplete="new-password"
+                                placeholder="Ít nhất 8 ký tự"
+                                autoFocus
+                                onChange={(event) => setResetPassword(event.target.value)}
+                              />
+                              {resetError && <div className="form-error" role="alert">{resetError}</div>}
+                              <button className="button button-primary" type="submit" disabled={resetBusy || resetPassword.length < 8}>
+                                {resetBusy ? "Đang lưu..." : "Đặt mật khẩu mới"}
+                              </button>
+                            </form>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
