@@ -27,7 +27,8 @@ export const PAGE_TITLE: Record<Page, string> = {
 };
 
 function pageFromHash(hash: string): Page {
-  const match = (Object.entries(PAGE_HASH) as Array<[Page, string]>).find(([, value]) => value === hash);
+  const path = hash.split("?")[0]; // vd. "#/tong-quan?ngay=2026-10-01" (mở từ thông báo)
+  const match = (Object.entries(PAGE_HASH) as Array<[Page, string]>).find(([, value]) => value === path);
   return match ? match[0] : "overview";
 }
 
@@ -45,6 +46,26 @@ export function usePage(): [Page, (page: Page) => void] {
     window.scrollTo({ top: 0 });
   };
   return [page, navigate];
+}
+
+/**
+ * Ngày được yêu cầu mở qua địa chỉ "#/tong-quan?ngay=YYYY-MM-DD" (bấm vào thông báo giao dịch).
+ * Gọi onDate với ngày đó rồi xóa tham số khỏi địa chỉ, để tải lại trang không bị nhảy về ngày cũ.
+ */
+export function useDateFromHash(onDate: (date: string) => void) {
+  useEffect(() => {
+    const apply = () => {
+      const [path, query] = window.location.hash.split("?");
+      const date = new URLSearchParams(query ?? "").get("ngay");
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      onDate(date);
+      history.replaceState(null, "", `${window.location.pathname}${window.location.search}${path}`);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
 
 // ---- Icon nét mảnh, 20×20 ----

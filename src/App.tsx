@@ -12,7 +12,7 @@ import ProfilePanel from "./ProfilePanel";
 import NotificationSettings from "./NotificationSettings";
 import { disablePush, resyncPush } from "./push";
 import { FieldStatus, hasError, useFieldCheck } from "./FieldCheck";
-import Sidebar, { PAGE_TITLE, usePage } from "./Sidebar";
+import Sidebar, { PAGE_TITLE, useDateFromHash, usePage } from "./Sidebar";
 import { formatAmountInput, formatCurrency, toDateInput } from "./format";
 import {
   createSpendingTarget,
@@ -391,6 +391,8 @@ function Dashboard({
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [selectedDate, setSelectedDate] = useState(() => toDateInput(new Date()));
+  // Bấm thông báo "#/tong-quan?ngay=YYYY-MM-DD" → mở đúng ngày/tháng của giao dịch.
+  useDateFromHash((date) => selectDate(date));
   const [transactionType, setTransactionType] = useState<TransactionType>("EXPENSE");
   const [categories, setCategories] = useState<TransactionCategory[]>([]);
   const [categoryId, setCategoryId] = useState("");
